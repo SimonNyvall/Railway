@@ -1,29 +1,56 @@
+using Cli.Helpers;
 using Cli.Infrastructure;
+using Spectre.Console.Cli;
 
 using Microsoft.EntityFrameworkCore;
+using Cli.Commands;
+using Cli.Services;
+using Cli.Handlers.Interfaces;
+using Cli.Handlers;
+using Cli.Services.Interfaces;
 
-var options = new DbContextOptionsBuilder<RailwayDbContext>()
-	.UseSqlite("Data Source=app.db")
-	.Options;
-	
-await using var db = new RailwayDbContext(options);
+await RegisterServices();
 
-await db.Database.EnsureCreatedAsync();
+var app = new CommandApp();
 
-db.Builds.Add(new Build
+app.Configure(config =>
 {
-    Name = "My Build",
-    CreatedAt = DateTime.UtcNow,
-    Status = "Running"
+	config.SetApplicationName("railway");
+	config.SetApplicationVersion("0.0.1");
+	
+	config.AddCommand<LinkCommand>("link")
+		.WithDescription("link a piple to a repo")
+		.WithAlias("l");
+		
+#if DEBUG
+	config.PropagateExceptions();
+	config.ValidateExamples();
+#endif
 });
 
-await db.SaveChangesAsync();
+return await app.RunAsync(args);
 
-var builds = await db.Builds
-    .OrderByDescending(x => x.CreatedAt)
-    .ToListAsync();
-
-foreach (var build in builds)
+async Task RegisterServices()
 {
-    Console.WriteLine($"{build.Id}: {build.Name} - {build.Status}");
+	LifetimeService.Add<ILinkHandler, LinkHandler>();
+	
+	var databasePath = DatabasePathHelper.Get();
+
+	if (!DatabasePathHelper.CreatePathIfNotExist(databasePath))
+	{
+		Console.WriteLine($"The path: {databasePath} could not be created");
+	}
+
+	var options = new DbContextOptionsBuilder<RailwayDbContext>()
+		.UseSqlite($"Data Source={databasePath}/data.db")
+		.Options;
+	
+	await using var dbContext = new RailwayDbContext(options);
+	await dbContext.Database.EnsureCreatedAsync();
+	
+	LifetimeService.Add(dbContext);
+	
+	LifetimeService.Add<IPipelineService, PipelineService>();
 }
+
+

@@ -5,6 +5,7 @@ public static class DatabasePathHelper
 	public static string Get()
 	{
 		var path = string.Empty;
+		const string applicationFolder = "Railway";
 		
 		if (OperatingSystem.IsWindows())
 			path = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -16,7 +17,7 @@ public static class DatabasePathHelper
 		
 		return string.IsNullOrEmpty(path)
 			? throw new InvalidOperationException("Could not find the os of the user")
-			: path;
+			: Path.Combine(path, applicationFolder);
 	}
 	
 	public static bool CreatePathIfNotExist(string path)
@@ -25,11 +26,11 @@ public static class DatabasePathHelper
 		{
 			if (!Path.Exists(path))
 			{
-				// Create the directory of something here
+				Directory.CreateDirectory(path);
 			}
 			return true;	
 		}
-		catch (Exception)
+		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) 
 		{
 			return false;
 		}
