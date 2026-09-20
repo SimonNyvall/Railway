@@ -3,6 +3,8 @@
 Work in progress project.
 The plan is to have local pipelines that are connected to a repo.
 
+This project is also written using the [SharpIDE](https://github.com/MattParkerDev/SharpIDE), please go and give it a star!
+
 ## Ideas
 
 - Local runtime, uses the users own env to execute.
