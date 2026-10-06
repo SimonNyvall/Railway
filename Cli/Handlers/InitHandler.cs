@@ -16,7 +16,7 @@ public class InitHandler : IInitHandler
 
             var hasMadeChanges = false;
 
-            if (Directory.Exists(railwayPath))
+            if (!Directory.Exists(railwayPath))
             {
                 Directory.CreateDirectory(railwayPath);
                 hasMadeChanges = true;
@@ -24,7 +24,7 @@ public class InitHandler : IInitHandler
 
             var railwayYamlPath = Path.Combine(railwayPath, "railway.yaml");
 
-            if (File.Exists(railwayYamlPath))
+            if (!File.Exists(railwayYamlPath))
             {
                 File.Create(railwayYamlPath);
                 hasMadeChanges = true;
@@ -60,20 +60,16 @@ public class InitHandler : IInitHandler
 
         static string Search(string? path)
         {
-            if (path == null || path.Length == 1)
+            if (path == null)
             {
                 throw new SearchException();
             }
 
-            var filesInCurrentDirector = Directory.GetFiles(path);
+            var directoriesInDirectory = Directory.GetDirectories(path);
 
-            if (filesInCurrentDirector.Contains(".git"))
-            {
-                return path;
-            }
-
-            Search(Directory.GetParent(path)?.Parent?.FullName);
-            return path;
+            return directoriesInDirectory.Contains(Path.Combine(path, ".git"))
+                ? path
+                : Search(Directory.GetParent(path)?.FullName);
         };
     }
 

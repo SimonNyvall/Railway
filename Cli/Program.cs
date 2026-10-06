@@ -1,7 +1,6 @@
 using Cli.Helpers;
 using Cli.Infrastructure;
 using Spectre.Console.Cli;
-
 using Microsoft.EntityFrameworkCore;
 using Cli.Commands;
 using Cli.Services;
