@@ -27,6 +27,9 @@ public class RailwayDbContext : DbContext
 			entity.Property(x => x.Path)
 				.HasMaxLength(100)
 				.IsRequired();
+				
+			entity.Ignore(e => e.Jobs);
+			entity.Ignore(e => e.Variables);
 		});
 		
 		modelBuilder.Entity<Repository>(entity =>

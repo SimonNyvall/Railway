@@ -1,27 +1,23 @@
-using System.ComponentModel;
-
 using Cli.Handlers.Interfaces;
 using Cli.Services;
-
-using Spectre.Console;
 using Spectre.Console.Cli;
 
 namespace Cli.Commands;
 
-public class LinkCommand : AsyncCommand
+public class InitCommand : AsyncCommand
 {
-	private readonly ILinkHandler _linkHandler;
+	private readonly IInitHandler _initHandler;
 
-    public LinkCommand()
+    public InitCommand()
     {
-        _linkHandler = LifetimeService.Get<ILinkHandler>();
+        _initHandler = LifetimeService.Get<IInitHandler>();
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
     {
 		try
 		{
-			await _linkHandler.Handle();
+			await _initHandler.Handle();
 			return 0;
 		}
 		catch

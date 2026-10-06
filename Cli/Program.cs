@@ -17,11 +17,17 @@ app.Configure(config =>
 {
 	config.SetApplicationName("railway");
 	config.SetApplicationVersion("0.0.1");
-	
+
+    config.AddCommand<InitCommand>("init")
+		.WithDescription("Initialize a railway repository");
+
 	config.AddCommand<LinkCommand>("link")
-		.WithDescription("link a piple to a repo")
+		.WithDescription("Link a pipeine to a repo")
 		.WithAlias("l");
-		
+
+	config.AddCommand<ValidateCommand>("validate")
+		.WithDescription("Validate a yaml pipeline file.");
+
 #if DEBUG
 	config.PropagateExceptions();
 	config.ValidateExamples();
@@ -32,8 +38,15 @@ return await app.RunAsync(args);
 
 async Task RegisterServices()
 {
+    LifetimeService.Add<IInitHandler, InitHandler>();
+
 	LifetimeService.Add<ILinkHandler, LinkHandler>();
-	
+
+	LifetimeService.Add<IPipelineService, PipelineService>();
+
+	LifetimeService.Add<IValidationHandler, ValidationHandler>();
+	LifetimeService.Add<IValidateService, ValidateService>();
+
 	var databasePath = DatabasePathHelper.Get();
 
 	if (!DatabasePathHelper.CreatePathIfNotExist(databasePath))
@@ -44,13 +57,9 @@ async Task RegisterServices()
 	var options = new DbContextOptionsBuilder<RailwayDbContext>()
 		.UseSqlite($"Data Source={databasePath}/data.db")
 		.Options;
-	
+
 	await using var dbContext = new RailwayDbContext(options);
 	await dbContext.Database.EnsureCreatedAsync();
-	
+
 	LifetimeService.Add(dbContext);
-	
-	LifetimeService.Add<IPipelineService, PipelineService>();
 }
-
-

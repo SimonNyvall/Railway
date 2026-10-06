@@ -3,8 +3,6 @@
 Work in progress project.
 The plan is to have local pipelines that are connected to a repo.
 
-This project is also written using the [SharpIDE](https://github.com/MattParkerDev/SharpIDE), please go and give it a star!
-
 ## Ideas
 
 - Local runtime, uses the users own env to execute.
@@ -17,7 +15,7 @@ This project is also written using the [SharpIDE](https://github.com/MattParkerD
 
 ## MVP
 
-- Be able to link pipeline to a repo
-- Have the user manually trigger the pipeline
-- List pipelines
-- Validate the pipeline (should be able to pass in the pipeline yaml and get validation back)
+- [ ] Be able to link pipeline to a repo
+- [ ] Have the user manually trigger the pipeline
+- [ ] List pipelines
+- [x] Validate the pipeline (should be able to pass in the pipeline yaml and get validation back)
