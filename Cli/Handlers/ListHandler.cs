@@ -1,28 +1,21 @@
 using Cli.Handlers.Interfaces;
-using Cli.Helpers;
-using Cli.Services;
-using Cli.Services.Interfaces;
+using Railway.Engine.Orchestration.Interfaces;
 using Spectre.Console;
 
 namespace Cli.Handlers;
 
 public class ListHandler : IListHandler
 {
-    private readonly IPipelineDiscoveryService _pipelineDiscoveryService;
+    private readonly IPipelineLister _pipelineLister;
 
-    public ListHandler() : this(LifetimeService.Get<IPipelineDiscoveryService>())
+    public ListHandler(IPipelineLister pipelineLister)
     {
-    }
-
-    public ListHandler(IPipelineDiscoveryService pipelineDiscoveryService)
-    {
-        _pipelineDiscoveryService = pipelineDiscoveryService;
+        _pipelineLister = pipelineLister;
     }
 
     public async Task Handle()
     {
-        var railwayPath = RepositoryHelper.GetRailwayPathOrThrow();
-        var pipelines = await _pipelineDiscoveryService.Discover(railwayPath);
+        var pipelines = await _pipelineLister.ListAsync(Directory.GetCurrentDirectory());
 
         if (pipelines.Count == 0)
         {
@@ -34,7 +27,7 @@ public class ListHandler : IListHandler
         {
             var name = pipeline.Name ?? "<unknown>";
             var prefix = pipeline.IsValid ? "" : "[red]✗[/] ";
-            
+
             AnsiConsole.MarkupLine($"{prefix}{pipeline.FileName} - name: {name}");
         }
     }

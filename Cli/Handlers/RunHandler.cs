@@ -1,90 +1,72 @@
-using Cli.Domain;
+using Railway.Engine.Domain;
 using Cli.Handlers.Interfaces;
-using Cli.Helpers;
-using Cli.Services;
-using Cli.Services.Interfaces;
+using Cli.Rendering;
+using Railway.Engine.Orchestration;
+using Railway.Engine.Orchestration.Interfaces;
 using Spectre.Console;
 
 namespace Cli.Handlers;
 
 public class RunHandler : IRunHandler
 {
-    private readonly IRunnerService _runnerService;
-    private readonly IPipelineDiscoveryService _pipelineDiscoveryService;
-    private readonly IValidateService _validateService;
+    private readonly IPipelineRunner _pipelineRunner;
 
-    public RunHandler()
-        : this(LifetimeService.Get<IRunnerService>(), LifetimeService.Get<IPipelineDiscoveryService>(), LifetimeService.Get<IValidateService>())
+    public RunHandler(IPipelineRunner pipelineRunner)
     {
-    }
-
-    public RunHandler(IRunnerService runnerService, IPipelineDiscoveryService pipelineDiscoveryService, IValidateService validateService)
-    {
-        _runnerService = runnerService;
-        _pipelineDiscoveryService = pipelineDiscoveryService;
-        _validateService = validateService;
+        _pipelineRunner = pipelineRunner;
     }
 
     public async Task Handle(string fileName, bool verbose)
     {
-        var railwayPath = RepositoryHelper.GetRailwayPathOrThrow();
-        var repoPath = RepositoryHelper.GetRootRepositoryPath()
-            ?? throw new NotARailwayRepositoryException();
+        RunOutcome outcome;
 
-        var pipelines = await _pipelineDiscoveryService.Discover(railwayPath);
-
-        // Match by file name only (last component of path)
-        var matchingPipelines = pipelines.Where(p => Path.GetFileName(p.FileName) == fileName).ToList();
-
-        if (matchingPipelines.Count == 0)
+        try
         {
-            AnsiConsole.MarkupLine($"[red]Pipeline file not found:[/] {fileName}");
+            outcome = await _pipelineRunner.RunAsync(
+                Directory.GetCurrentDirectory(),
+                fileName,
+                verbose,
+                new SpectreRunProgress(verbose));
+        }
+        catch (NotARailwayRepositoryException)
+        {
+            throw;
+        }
+        catch (PipelineFileNotFoundException ex)
+        {
+            AnsiConsole.MarkupLine($"[red]Pipeline file not found:[/] {ex.FileName}");
             AnsiConsole.MarkupLine($"[dim]Hint: run 'railway list' to see available pipelines[/]");
-            throw new FileNotFoundException($"Pipeline file not found: {fileName}");
+            throw new FileNotFoundException(ex.Message);
         }
-
-        if (matchingPipelines.Count > 1)
+        catch (AmbiguousPipelineException ex)
         {
-            AnsiConsole.MarkupLine($"[red]Multiple pipeline files match:[/] {fileName}");
-            foreach (var p in matchingPipelines)
+            AnsiConsole.MarkupLine($"[red]Multiple pipeline files match:[/] {ex.FileName}");
+            foreach (var path in ex.Candidates)
             {
-                AnsiConsole.MarkupLine($"  [dim]{p.Path}[/]");
+                AnsiConsole.MarkupLine($"  [dim]{path}[/]");
             }
-            throw new InvalidOperationException($"Ambiguous pipeline file name: {fileName}");
+            throw new InvalidOperationException(ex.Message);
         }
-
-        var pipelineInfo = matchingPipelines[0];
-
-        // Parse pipeline with PipelineHelper.TryParse
-        var (pipeline, parseError) = await PipelineHelper.TryParse(pipelineInfo.Path);
-        if (parseError != null || pipeline == null)
+        catch (PipelineInvalidException ex) when (ex.Kind == PipelineInvalidKind.Parse)
         {
-            AnsiConsole.MarkupLine($"[red]Failed to parse pipeline:[/] {fileName}");
-            AnsiConsole.MarkupLine($"  [red]✗[/] {parseError}");
-            throw new InvalidOperationException($"Pipeline parse failed: {parseError}");
+            AnsiConsole.MarkupLine($"[red]Failed to parse pipeline:[/] {ex.FileName}");
+            foreach (var error in ex.Errors)
+            {
+                AnsiConsole.MarkupLine($"  [red]✗[/] {error}");
+            }
+            throw new InvalidOperationException(ex.Message);
         }
-
-        // Validate with ValidateService
-        var validationErrors = await _validateService.IsValid(pipeline);
-        if (validationErrors.Any())
+        catch (PipelineInvalidException ex) when (ex.Kind == PipelineInvalidKind.Validation)
         {
-            AnsiConsole.MarkupLine($"[red]Pipeline is invalid:[/] {fileName}");
-            foreach (var error in validationErrors)
+            AnsiConsole.MarkupLine($"[red]Pipeline is invalid:[/] {ex.FileName}");
+            foreach (var error in ex.Errors)
             {
                 AnsiConsole.MarkupLine($"  [red]✗[/] {error}");
             }
             throw new InvalidOperationException("Pipeline validation failed");
         }
 
-        var request = new RunRequest
-        {
-            RepositoryPath = repoPath,
-            PipelineFileName = fileName,
-            Pipeline = pipeline,
-            Verbose = verbose
-        };
-
-        var run = await _runnerService.Run(request);
+        var run = outcome.Run;
 
         if (run.Status == RunStatus.Succeeded)
         {

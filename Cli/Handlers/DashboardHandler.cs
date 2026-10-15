@@ -1,28 +1,22 @@
-using Cli.Domain;
+using Railway.Engine.Domain;
 using Cli.Handlers.Interfaces;
-using Cli.Helpers;
-using Cli.Services;
-using Cli.Services.Interfaces;
+using Railway.Engine.Orchestration.Interfaces;
 using Spectre.Console;
 
 namespace Cli.Handlers;
 
 public class DashboardHandler : IDashboardHandler
 {
-    private readonly IDashboardService _dashboardService;
+    private readonly IDashboardQuery _dashboardQuery;
 
-    public DashboardHandler() : this(LifetimeService.Get<IDashboardService>())
+    public DashboardHandler(IDashboardQuery dashboardQuery)
     {
-    }
-
-    public DashboardHandler(IDashboardService dashboardService)
-    {
-        _dashboardService = dashboardService;
+        _dashboardQuery = dashboardQuery;
     }
 
     public async Task Handle()
     {
-        var view = await _dashboardService.GetView();
+        var view = await _dashboardQuery.QueryAsync(Directory.GetCurrentDirectory());
 
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine($"[bold]Repository:[/] {view.RepositoryName}");

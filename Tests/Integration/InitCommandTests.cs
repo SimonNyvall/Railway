@@ -1,10 +1,11 @@
 using Cli.Commands;
 using Cli.Handlers;
 using Cli.Handlers.Interfaces;
-using Cli.Helpers;
-using Cli.Infrastructure;
-using Cli.Services;
+using Railway.Engine;
+using Railway.Engine.Helpers;
+using Railway.Engine.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Testing;
@@ -61,8 +62,12 @@ public class InitCommandTests : IDisposable
         var console = CreateConsole();
         var app = CreateApp(console);
 
-        // Test LifetimeService directly
-        var handler = LifetimeService.Get<IInitHandler>();
+        // Resolve the handler through MS.DI
+        var services = new ServiceCollection();
+        services.AddEngine(new EngineOptions { DatabasePath = _fixture.DbPath });
+        services.AddTransient<IInitHandler, InitHandler>();
+        using var provider = services.BuildServiceProvider();
+        var handler = provider.GetRequiredService<IInitHandler>();
         Assert.NotNull(handler);
 
         // Test help to see registered commands (output goes to stdout, not TestConsole)

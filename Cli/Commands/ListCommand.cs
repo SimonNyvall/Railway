@@ -1,6 +1,5 @@
-using Cli.Domain;
+using Railway.Engine.Domain;
 using Cli.Handlers.Interfaces;
-using Cli.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -10,9 +9,9 @@ public class ListCommand : AsyncCommand
 {
     private readonly IListHandler _listHandler;
 
-    public ListCommand()
+    public ListCommand(IListHandler listHandler)
     {
-        _listHandler = LifetimeService.Get<IListHandler>();
+        _listHandler = listHandler;
     }
 
     protected override async Task<int> ExecuteAsync(

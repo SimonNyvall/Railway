@@ -1,6 +1,7 @@
-using Cli.Domain;
+using Railway.Engine.Domain;
 using Cli.Handlers;
-using Cli.Services.Interfaces;
+using Railway.Engine.Orchestration;
+using Railway.Engine.Services.Interfaces;
 using FakeItEasy;
 using Tests.Infrastructure;
 using Xunit;
@@ -8,10 +9,11 @@ using Xunit;
 namespace Tests.Unit;
 
 /// <summary>
-/// Unit tests for the real <see cref="ValidationHandler"/> using a FakeItEasy fake
-/// for <see cref="IValidateService"/>. The handler parses the supplied yaml file
-/// with the real <see cref="Cli.Helpers.PipelineHelper"/>, so valid/invalid cases
-/// write a real temp file.
+/// Unit tests for the real <see cref="ValidationHandler"/> driven by a FakeItEasy
+/// fake for <see cref="IValidateService"/> behind the real
+/// <see cref="PipelineValidator"/> orchestrator. The orchestrator parses the
+/// supplied yaml file with the real <see cref="Railway.Engine.Helpers.PipelineHelper"/>,
+/// so valid/invalid cases write a real temp file.
 /// <para>
 /// Serialized with the <c>Integration Tests</c> collection because the handler
 /// writes to the process-wide <see cref="Spectre.Console.AnsiConsole"/>.
@@ -30,7 +32,7 @@ public class ValidationHandlerTests
     [Fact]
     public async Task Handle_NonYamlPath_ThrowsArgumentException()
     {
-        var handler = new ValidationHandler(A.Fake<IValidateService>());
+        var handler = new ValidationHandler(new PipelineValidator(A.Fake<IValidateService>()));
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => handler.Handle("pipeline.txt"));
@@ -41,7 +43,7 @@ public class ValidationHandlerTests
     [Fact]
     public async Task Handle_MissingYamlFile_ThrowsArgumentException()
     {
-        var handler = new ValidationHandler(A.Fake<IValidateService>());
+        var handler = new ValidationHandler(new PipelineValidator(A.Fake<IValidateService>()));
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => handler.Handle("definitely-missing.yaml"));
@@ -72,7 +74,7 @@ public class ValidationHandlerTests
 
         var validate = Validating([]);
         var console = TestConsoleFactory.Create();
-        var handler = new ValidationHandler(validate);
+        var handler = new ValidationHandler(new PipelineValidator(validate));
 
         var result = await handler.Handle(path);
 
@@ -104,7 +106,7 @@ public class ValidationHandlerTests
 
         var validate = Validating(["Job 'deploy' does not exist", "Step must contain a 'run' command"]);
         var console = TestConsoleFactory.Create();
-        var handler = new ValidationHandler(validate);
+        var handler = new ValidationHandler(new PipelineValidator(validate));
 
         var result = await handler.Handle(path);
 

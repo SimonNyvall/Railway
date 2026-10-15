@@ -1,6 +1,5 @@
-using Cli.Domain;
+using Railway.Engine.Domain;
 using Cli.Handlers.Interfaces;
-using Cli.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -19,9 +18,9 @@ public class RunCommand : AsyncCommand<RunSettings>
 {
     private readonly IRunHandler _runHandler;
 
-    public RunCommand()
+    public RunCommand(IRunHandler runHandler)
     {
-        _runHandler = LifetimeService.Get<IRunHandler>();
+        _runHandler = runHandler;
     }
 
     protected override async Task<int> ExecuteAsync(

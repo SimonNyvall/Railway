@@ -1,12 +1,8 @@
 using Cli.Commands;
 using Cli.Handlers;
 using Cli.Handlers.Interfaces;
-using Cli.Helpers;
-using Cli.Infrastructure;
-using Cli.Services;
-using Cli.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Railway.Engine;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Testing;
@@ -21,6 +17,13 @@ namespace Tests.Infrastructure;
 /// </summary>
 public class TestTypeRegistrar : ITypeRegistrar
 {
+    // Stands in for the single shared database the old static service locator
+    // (registered once by the collection fixture) gave every integration test.
+    // Registrars created without an explicit path therefore resolve the same DB,
+    // so a run written by one registrar is visible to the next.
+    private static readonly string SharedDatabasePath =
+        Path.Combine(Path.GetTempPath(), "railway_test_db_" + Guid.NewGuid());
+
     private readonly IServiceCollection _services = new ServiceCollection();
 
     public TestTypeRegistrar(TestConsole? console = null, string? databasePath = null)
@@ -37,27 +40,10 @@ public class TestTypeRegistrar : ITypeRegistrar
 
     private void RegisterServices(string? databasePath)
     {
-        var dbPath = databasePath ?? Path.Combine(Path.GetTempPath(), "railway_test_db_" + Guid.NewGuid());
-        Directory.CreateDirectory(dbPath);
+        var dbPath = databasePath ?? SharedDatabasePath;
 
-        var options = new DbContextOptionsBuilder<RailwayDbContext>()
-            .UseSqlite($"Data Source={dbPath}/data.db")
-            .Options;
-
-        using (var dbContext = new RailwayDbContext(options))
-        {
-            dbContext.Database.EnsureCreated();
-        }
-
-        // Context factory — a new context per resolve, mirroring prod LifetimeService registration
-        _services.AddTransient(_ => new RailwayDbContext(options));
-
-        // Services (mirror Cli/Program.cs LifetimeService registrations)
-        _services.AddTransient<IValidateService, ValidateService>();
-        _services.AddTransient<IPipelineDiscoveryService, PipelineDiscoveryService>();
-        _services.AddTransient<IRunnerService, RunnerService>();
-        _services.AddTransient<IDashboardService, DashboardService>();
-        _services.AddTransient<IPipelineService, PipelineService>();
+        // Engine services + DbContext with an isolated database
+        _services.AddEngine(new EngineOptions { DatabasePath = dbPath });
 
         // Handlers
         _services.AddTransient<IInitHandler, InitHandler>();
@@ -73,6 +59,10 @@ public class TestTypeRegistrar : ITypeRegistrar
         _services.AddTransient<ListCommand>();
         _services.AddTransient<RunCommand>();
         _services.AddTransient<DashboardCommand>();
+
+        // Engine owns EnsureCreated; create the database before the tests use it.
+        using var provider = _services.BuildServiceProvider();
+        provider.InitializeEngineAsync().GetAwaiter().GetResult();
     }
 
     /// <inheritdoc/>

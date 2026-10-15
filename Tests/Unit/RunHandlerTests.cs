@@ -1,6 +1,7 @@
-using Cli.Domain;
+using Railway.Engine.Domain;
 using Cli.Handlers;
-using Cli.Services.Interfaces;
+using Railway.Engine.Orchestration;
+using Railway.Engine.Services.Interfaces;
 using FakeItEasy;
 using Tests.Infrastructure;
 using Xunit;
@@ -9,11 +10,12 @@ namespace Tests.Unit;
 
 /// <summary>
 /// Unit tests for the real <see cref="RunHandler"/> driven by FakeItEasy fakes for
-/// its <see cref="IRunnerService"/>, <see cref="IPipelineDiscoveryService"/> and
-/// <see cref="IValidateService"/> dependencies.
+/// the <see cref="IRunnerService"/>, <see cref="IPipelineDiscoveryService"/> and
+/// <see cref="IValidateService"/> dependencies of the real
+/// <see cref="PipelineRunner"/> orchestrator.
 /// <para>
 /// <see cref="RunHandler"/> resolves the repository from the current working
-/// directory via <see cref="Cli.Helpers.RepositoryHelper"/>, so these tests run
+/// directory via <see cref="Railway.Engine.Helpers.RepositoryHelper"/>, so these tests run
 /// inside a temp git/railway repo (<see cref="TestRailwayRepository"/>) and are
 /// serialized with the rest of the cwd/console-mutating suite through the
 /// <c>Integration Tests</c> collection.
@@ -70,15 +72,23 @@ public class RunHandlerTests : IDisposable
     private static IRunnerService Running(Run run)
     {
         var runner = A.Fake<IRunnerService>();
-        A.CallTo(() => runner.Run(A<RunRequest>._, A<CancellationToken>._)).Returns(run);
+        A.CallTo(() => runner.Run(A<RunRequest>._, A<IProgress<RunEvent>>._, A<CancellationToken>._)).Returns(run);
         return runner;
+    }
+
+    private static RunHandler CreateHandler(
+        IRunnerService runner,
+        IPipelineDiscoveryService discovery,
+        IValidateService validate)
+    {
+        return new RunHandler(new PipelineRunner(runner, discovery, validate));
     }
 
     [Fact]
     public async Task Handle_PipelineNotFound_PrintsErrorAndThrows()
     {
         var console = TestConsoleFactory.Create();
-        var handler = new RunHandler(A.Fake<IRunnerService>(), DiscoveryReturning(), A.Fake<IValidateService>());
+        var handler = CreateHandler(A.Fake<IRunnerService>(), DiscoveryReturning(), A.Fake<IValidateService>());
 
         var exception = await Assert.ThrowsAsync<FileNotFoundException>(
             () => handler.Handle("missing.yaml", verbose: false));
@@ -96,7 +106,7 @@ public class RunHandlerTests : IDisposable
             new DiscoveredPipeline { FileName = "build.yaml", Path = "/repo/other/build.yaml" });
 
         var console = TestConsoleFactory.Create();
-        var handler = new RunHandler(A.Fake<IRunnerService>(), discovery, A.Fake<IValidateService>());
+        var handler = CreateHandler(A.Fake<IRunnerService>(), discovery, A.Fake<IValidateService>());
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle("build.yaml", verbose: false));
@@ -112,7 +122,7 @@ public class RunHandlerTests : IDisposable
     {
         var discovered = WritePipeline("build.yaml", "invalid: yaml: [");
         var console = TestConsoleFactory.Create();
-        var handler = new RunHandler(A.Fake<IRunnerService>(), DiscoveryReturning(discovered), A.Fake<IValidateService>());
+        var handler = CreateHandler(A.Fake<IRunnerService>(), DiscoveryReturning(discovered), A.Fake<IValidateService>());
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle("build.yaml", verbose: false));
@@ -129,14 +139,14 @@ public class RunHandlerTests : IDisposable
         var runner = A.Fake<IRunnerService>();
 
         var console = TestConsoleFactory.Create();
-        var handler = new RunHandler(runner, DiscoveryReturning(discovered), validate);
+        var handler = CreateHandler(runner, DiscoveryReturning(discovered), validate);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle("build.yaml", verbose: false));
 
         Assert.Contains("Pipeline is invalid", console.Output);
         Assert.Contains("Job 'deploy' does not exist", console.Output);
-        A.CallTo(() => runner.Run(A<RunRequest>._, A<CancellationToken>._)).MustNotHaveHappened();
+        A.CallTo(() => runner.Run(A<RunRequest>._, A<IProgress<RunEvent>>._, A<CancellationToken>._)).MustNotHaveHappened();
     }
 
     [Fact]
@@ -146,7 +156,7 @@ public class RunHandlerTests : IDisposable
         var runner = Running(new Run { Status = RunStatus.Succeeded });
 
         var console = TestConsoleFactory.Create();
-        var handler = new RunHandler(runner, DiscoveryReturning(discovered), Validating([]));
+        var handler = CreateHandler(runner, DiscoveryReturning(discovered), Validating([]));
 
         await handler.Handle("build.yaml", verbose: false);
 
@@ -160,7 +170,7 @@ public class RunHandlerTests : IDisposable
         var runner = Running(new Run { Status = RunStatus.Failed, ExitCode = 3 });
 
         var console = TestConsoleFactory.Create();
-        var handler = new RunHandler(runner, DiscoveryReturning(discovered), Validating([]));
+        var handler = CreateHandler(runner, DiscoveryReturning(discovered), Validating([]));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle("build.yaml", verbose: false));

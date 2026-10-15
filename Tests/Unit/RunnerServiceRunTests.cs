@@ -1,5 +1,5 @@
-using Cli.Domain;
-using Cli.Services;
+using Railway.Engine.Domain;
+using Railway.Engine.Services;
 using Microsoft.EntityFrameworkCore;
 using Tests.Infrastructure;
 using Xunit;
@@ -47,7 +47,7 @@ public class RunnerServiceRunTests
             }
         };
 
-        var run = await service.Run(request, TestContext.Current.CancellationToken);
+        var run = await service.Run(request, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(RunStatus.Succeeded, run.Status);
         Assert.Equal(0, run.ExitCode);
@@ -99,7 +99,7 @@ public class RunnerServiceRunTests
         };
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.Run(request, TestContext.Current.CancellationToken));
+            () => service.Run(request, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("Circular dependency", exception.Message);
     }
