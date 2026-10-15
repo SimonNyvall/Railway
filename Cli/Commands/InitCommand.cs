@@ -17,8 +17,8 @@ public class InitCommand : AsyncCommand
     {
 		try
 		{
-			await _initHandler.Handle();
-			return 0;
+			var initialized = await _initHandler.Handle();
+			return initialized ? 0 : 1;
 		}
 		catch
 		{

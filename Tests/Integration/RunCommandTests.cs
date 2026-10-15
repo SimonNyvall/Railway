@@ -12,6 +12,7 @@ using Xunit;
 
 namespace Tests.Integration;
 
+[Collection("Integration Tests")]
 public class RunCommandTests : IDisposable
 {
     private readonly TestRailwayRepository _repo;
@@ -47,7 +48,7 @@ public class RunCommandTests : IDisposable
             """);
 
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
         var app = new CommandApp(registrar);
         app.Configure(c =>
@@ -56,7 +57,7 @@ public class RunCommandTests : IDisposable
             c.AddCommand<RunCommand>("run");
         });
 
-        var result = await app.RunAsync(["run", "build.yaml"]);
+        var result = await app.RunAsync(["run", "build.yaml"], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
         Assert.Contains("Pipeline completed successfully", console.Output);
@@ -86,7 +87,7 @@ public class RunCommandTests : IDisposable
             """);
 
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
         var app = new CommandApp(registrar);
         app.Configure(c =>
@@ -95,7 +96,7 @@ public class RunCommandTests : IDisposable
             c.AddCommand<RunCommand>("run");
         });
 
-        var result = await app.RunAsync(["run", "build.yaml"]);
+        var result = await app.RunAsync(["run", "build.yaml"], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
         Assert.Contains("Pipeline completed successfully", console.Output);
@@ -126,7 +127,7 @@ public class RunCommandTests : IDisposable
             """);
 
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
         var app = new CommandApp(registrar);
         app.Configure(c =>
@@ -135,7 +136,7 @@ public class RunCommandTests : IDisposable
             c.AddCommand<RunCommand>("run");
         });
 
-        var result = await app.RunAsync(["run", "build.yaml"]);
+        var result = await app.RunAsync(["run", "build.yaml"], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result);
         Assert.Contains("Pipeline failed", console.Output);
@@ -147,7 +148,7 @@ public class RunCommandTests : IDisposable
     public async Task Run_NonExistentPipeline_ShowsError()
     {
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
         var app = new CommandApp(registrar);
         app.Configure(c =>
@@ -156,7 +157,7 @@ public class RunCommandTests : IDisposable
             c.AddCommand<RunCommand>("run");
         });
 
-        var result = await app.RunAsync(["run", "nonexistent.yaml"]);
+        var result = await app.RunAsync(["run", "nonexistent.yaml"], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result);
         Assert.Contains("Pipeline file not found", console.Output);
@@ -176,7 +177,7 @@ public class RunCommandTests : IDisposable
             """);
 
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
         var app = new CommandApp(registrar);
         app.Configure(c =>
@@ -185,7 +186,7 @@ public class RunCommandTests : IDisposable
             c.AddCommand<RunCommand>("run");
         });
 
-        var result = await app.RunAsync(["run", "invalid.yaml"]);
+        var result = await app.RunAsync(["run", "invalid.yaml"], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result);
         Assert.Contains("Pipeline is invalid", console.Output);

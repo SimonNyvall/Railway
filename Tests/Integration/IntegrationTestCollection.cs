@@ -1,4 +1,5 @@
 using Xunit;
+using Tests.Infrastructure;
 
 namespace Tests.Integration;
 

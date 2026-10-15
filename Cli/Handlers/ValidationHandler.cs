@@ -20,7 +20,7 @@ public class ValidationHandler : IValidationHandler
         _validateService = validateService;
     }
 
-    public async Task Handle(string path)
+    public async Task<bool> Handle(string path)
     {
         if (!IsFileYaml(path))
         {
@@ -39,10 +39,11 @@ public class ValidationHandler : IValidationHandler
         if (errors.Count == 0)
         {
             PrintValidOutput(pipeline);
-            return;
+            return true;
         }
 
         PrintInvalidOutput(errors);
+        return false;
     }
 
     private static bool IsFileYaml(string path)

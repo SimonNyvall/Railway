@@ -50,7 +50,7 @@ public class PipelineDiscoveryServiceTests
                         run: dotnet build
                 """;
 
-            await File.WriteAllTextAsync(Path.Combine(pipelinesPath, "build.yaml"), pipelineYaml);
+            await File.WriteAllTextAsync(Path.Combine(pipelinesPath, "build.yaml"), pipelineYaml, TestContext.Current.CancellationToken);
 
             var results = await PipelineDiscoveryService.DiscoverStatic(railwayPath);
 
@@ -79,7 +79,7 @@ public class PipelineDiscoveryServiceTests
             Directory.CreateDirectory(pipelinesPath);
 
             var invalidYaml = "invalid: yaml: content: [";
-            await File.WriteAllTextAsync(Path.Combine(pipelinesPath, "invalid.yaml"), invalidYaml);
+            await File.WriteAllTextAsync(Path.Combine(pipelinesPath, "invalid.yaml"), invalidYaml, TestContext.Current.CancellationToken);
 
             var results = await PipelineDiscoveryService.DiscoverStatic(railwayPath);
 
@@ -112,7 +112,7 @@ public class PipelineDiscoveryServiceTests
                   build:
                     steps:
                       - run: dotnet build
-                """);
+                """, TestContext.Current.CancellationToken);
 
             await File.WriteAllTextAsync(Path.Combine(pipelinesPath, "test.yaml"), """
                 name: test
@@ -120,7 +120,7 @@ public class PipelineDiscoveryServiceTests
                   test:
                     steps:
                       - run: dotnet test
-                """);
+                """, TestContext.Current.CancellationToken);
 
             await File.WriteAllTextAsync(Path.Combine(pipelinesPath, "deploy.yaml"), """
                 name: deploy
@@ -128,7 +128,7 @@ public class PipelineDiscoveryServiceTests
                   deploy:
                     steps:
                       - run: echo deploy
-                """);
+                """, TestContext.Current.CancellationToken);
 
             var results = await PipelineDiscoveryService.DiscoverStatic(railwayPath);
 
@@ -163,7 +163,7 @@ public class PipelineDiscoveryServiceTests
                   job:
                     steps:
                       - run: echo root
-                """);
+                """, TestContext.Current.CancellationToken);
 
             await File.WriteAllTextAsync(Path.Combine(nestedPath, "nested.yaml"), """
                 name: nested
@@ -171,7 +171,7 @@ public class PipelineDiscoveryServiceTests
                   job:
                     steps:
                       - run: echo nested
-                """);
+                """, TestContext.Current.CancellationToken);
 
             var results = await PipelineDiscoveryService.DiscoverStatic(railwayPath);
 
@@ -203,7 +203,7 @@ public class PipelineDiscoveryServiceTests
                   job:
                     steps:
                       - run: echo last
-                """);
+                """, TestContext.Current.CancellationToken);
 
             await File.WriteAllTextAsync(Path.Combine(pipelinesPath, "a-first.yaml"), """
                 name: first
@@ -211,7 +211,7 @@ public class PipelineDiscoveryServiceTests
                   job:
                     steps:
                       - run: echo first
-                """);
+                """, TestContext.Current.CancellationToken);
 
             await File.WriteAllTextAsync(Path.Combine(pipelinesPath, "m-middle.yaml"), """
                 name: middle
@@ -219,7 +219,7 @@ public class PipelineDiscoveryServiceTests
                   job:
                     steps:
                       - run: echo middle
-                """);
+                """, TestContext.Current.CancellationToken);
 
             var results = await PipelineDiscoveryService.DiscoverStatic(railwayPath);
 

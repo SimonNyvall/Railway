@@ -1,9 +1,11 @@
 using Cli.Commands;
 using Cli.Handlers;
+using Cli.Handlers.Interfaces;
 using Cli.Helpers;
 using Cli.Infrastructure;
 using Cli.Services;
 using Microsoft.EntityFrameworkCore;
+using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Testing;
 using Tests.Infrastructure;
@@ -11,13 +13,16 @@ using Xunit;
 
 namespace Tests.Integration;
 
+[Collection("Integration Tests")]
 public class InitCommandTests : IDisposable
 {
+    private readonly IntegrationTestFixture _fixture;
     private readonly string _tempDir;
     private readonly string _originalDir;
 
-    public InitCommandTests()
+    public InitCommandTests(IntegrationTestFixture fixture)
     {
+        _fixture = fixture;
         _originalDir = Directory.GetCurrentDirectory();
         _tempDir = Path.Combine(Path.GetTempPath(), "railway_init_test_" + Guid.NewGuid());
         Directory.CreateDirectory(_tempDir);
@@ -38,15 +43,34 @@ public class InitCommandTests : IDisposable
         }
     }
 
+    private TestConsole CreateConsole() => new();
+
+    private CommandApp CreateApp(TestConsole console)
+    {
+        var registrar = new TestTypeRegistrar(console, _fixture.DbPath);
+        var app = new CommandApp(registrar);
+        app.Configure(c => c.AddCommand<InitCommand>("init"));
+        // Capture AnsiConsole output to TestConsole
+        AnsiConsole.Console = console;
+        return app;
+    }
+
     [Fact]
     public async Task Init_CreatesRailwayStructure()
     {
-        var console = new TestConsole();
-        var registrar = new TestTypeRegistrar(console);
-        var app = new CommandApp(registrar);
-        app.Configure(c => c.AddCommand<InitCommand>("init"));
+        var console = CreateConsole();
+        var app = CreateApp(console);
 
-        var result = await app.RunAsync(["init"]);
+        // Test LifetimeService directly
+        var handler = LifetimeService.Get<IInitHandler>();
+        Assert.NotNull(handler);
+
+        // Test help to see registered commands (output goes to stdout, not TestConsole)
+        var helpResult = await app.RunAsync(["--help"], TestContext.Current.CancellationToken);
+        Assert.Equal(0, helpResult);
+
+        // Now test via app
+        var result = await app.RunAsync(["init"], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
 
@@ -55,7 +79,7 @@ public class InitCommandTests : IDisposable
         Assert.True(Directory.Exists(Path.Combine(railwayPath, "pipelines")));
         Assert.True(File.Exists(Path.Combine(railwayPath, "railway.yaml")));
 
-        var manifestContent = await File.ReadAllTextAsync(Path.Combine(railwayPath, "railway.yaml"));
+        var manifestContent = await File.ReadAllTextAsync(Path.Combine(railwayPath, "railway.yaml"), TestContext.Current.CancellationToken);
         Assert.Contains("name:", manifestContent);
         Assert.Contains("pipelines:", manifestContent);
     }
@@ -63,16 +87,14 @@ public class InitCommandTests : IDisposable
     [Fact]
     public async Task Init_Idempotent_ReturnsReinitializedMessage()
     {
-        var console = new TestConsole();
-        var registrar = new TestTypeRegistrar(console);
-        var app = new CommandApp(registrar);
-        app.Configure(c => c.AddCommand<InitCommand>("init"));
+        var console = CreateConsole();
+        var app = CreateApp(console);
 
         // First init
-        await app.RunAsync(["init"]);
+        await app.RunAsync(["init"], TestContext.Current.CancellationToken);
 
         // Second init
-        var result = await app.RunAsync(["init"]);
+        var result = await app.RunAsync(["init"], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
         Assert.Contains("Reinitialized existing Railway repository", console.Output);
@@ -83,23 +105,23 @@ public class InitCommandTests : IDisposable
     {
         var nonGitDir = Path.Combine(Path.GetTempPath(), "railway_nogit_" + Guid.NewGuid());
         Directory.CreateDirectory(nonGitDir);
-        Directory.SetCurrentDirectory(nonGitDir);
+        var originalDir = Directory.GetCurrentDirectory();
 
         try
         {
-            var console = new TestConsole();
-            var registrar = new TestTypeRegistrar(console);
-            var app = new CommandApp(registrar);
-            app.Configure(c => c.AddCommand<InitCommand>("init"));
+            Directory.SetCurrentDirectory(nonGitDir);
 
-            var result = await app.RunAsync(["init"]);
+            var console = CreateConsole();
+            var app = CreateApp(console);
+
+            var result = await app.RunAsync(["init"], TestContext.Current.CancellationToken);
 
             Assert.Equal(1, result);
             Assert.Contains("fatal: not a git repository", console.Output);
         }
         finally
         {
-            Directory.SetCurrentDirectory(_tempDir);
+            Directory.SetCurrentDirectory(originalDir);
             Directory.Delete(nonGitDir, true);
         }
     }

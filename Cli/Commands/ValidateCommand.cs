@@ -29,8 +29,8 @@ public class ValidateCommand : AsyncCommand<ValidationSettings>
     {
         try
         {
-            await _validationHandler.Handle(settings.Name);
-            return 0;
+            var isValid = await _validationHandler.Handle(settings.Name);
+            return isValid ? 0 : 1;
         }
         catch (NotARailwayRepositoryException ex)
         {

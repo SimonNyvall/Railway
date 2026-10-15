@@ -1,10 +1,15 @@
-using System.Collections;
 using Cli.Domain;
 using Cli.Services;
 using Xunit;
 
 namespace Tests.Unit;
 
+/// <summary>
+/// Unit tests for the pure helper logic of the real <see cref="RunnerService"/>.
+/// The helpers are <c>internal static</c> and reached via
+/// <c>InternalsVisibleTo("Tests")</c>, so these tests exercise production code
+/// rather than re-implementing it.
+/// </summary>
 public class RunnerServiceTests
 {
     [Fact]
@@ -17,7 +22,7 @@ public class RunnerServiceTests
             ["deploy"] = new Job { DependsOn = ["test"], Steps = [new Step { Run = "echo deploy" }] }
         };
 
-        var order = RunnerServiceTopologicalSort(jobs);
+        var order = RunnerService.TopologicalSort(jobs);
 
         Assert.Equal(["build", "test", "deploy"], order);
     }
@@ -33,7 +38,7 @@ public class RunnerServiceTests
             ["d"] = new Job { DependsOn = ["b", "c"], Steps = [new Step { Run = "echo d" }] }
         };
 
-        var order = RunnerServiceTopologicalSort(jobs);
+        var order = RunnerService.TopologicalSort(jobs);
 
         Assert.Equal(4, order.Count);
         Assert.Equal("a", order[0]);
@@ -54,7 +59,7 @@ public class RunnerServiceTests
             ["job3"] = new Job { DependsOn = [], Steps = [new Step { Run = "echo 3" }] }
         };
 
-        var order = RunnerServiceTopologicalSort(jobs);
+        var order = RunnerService.TopologicalSort(jobs);
 
         Assert.Equal(3, order.Count);
         Assert.Contains("job1", order);
@@ -71,7 +76,7 @@ public class RunnerServiceTests
             ["b"] = new Job { DependsOn = ["a"], Steps = [new Step { Run = "echo b" }] }
         };
 
-        var exception = Assert.Throws<InvalidOperationException>(() => RunnerServiceTopologicalSort(jobs));
+        var exception = Assert.Throws<InvalidOperationException>(() => RunnerService.TopologicalSort(jobs));
         Assert.Contains("Circular dependency", exception.Message);
     }
 
@@ -87,7 +92,7 @@ public class RunnerServiceTests
             }
         };
 
-        var env = RunnerServiceBuildEnvironment(pipeline);
+        var env = RunnerService.BuildEnvironment(pipeline);
 
         Assert.Contains(env, kvp => kvp.Key == "PIPELINE_VAR" && kvp.Value == "pipeline_value");
         Assert.Contains(env, kvp => kvp.Key == "OVERRIDE_VAR" && kvp.Value == "pipeline_override");
@@ -108,7 +113,7 @@ public class RunnerServiceTests
             ["NEW_VAR"] = "new_value"
         };
 
-        var result = RunnerServiceMergeEnvironments(baseEnv, overrideEnv);
+        var result = RunnerService.MergeEnvironments(baseEnv, overrideEnv);
 
         Assert.Equal("base_value", result["BASE_VAR"]);
         Assert.Equal("override_value", result["OVERRIDE_VAR"]);
@@ -128,87 +133,9 @@ public class RunnerServiceTests
             ["var_one"] = "two"
         };
 
-        var result = RunnerServiceMergeEnvironments(baseEnv, overrideEnv);
+        var result = RunnerService.MergeEnvironments(baseEnv, overrideEnv);
 
         Assert.Equal("two", result["VAR_ONE"]);
         Assert.Equal("two", result["var_one"]);
-    }
-
-    // Helper methods to test private methods via reflection or by extracting logic
-    // Since the methods are private, we'll replicate the logic here for testing
-
-    private static List<string> RunnerServiceTopologicalSort(Dictionary<string, Job> jobs)
-    {
-        var visited = new HashSet<string>();
-        var visiting = new HashSet<string>();
-        var result = new List<string>();
-
-        void Visit(string jobName)
-        {
-            if (visiting.Contains(jobName))
-            {
-                throw new InvalidOperationException($"Circular dependency detected involving job '{jobName}'");
-            }
-
-            if (visited.Contains(jobName))
-            {
-                return;
-            }
-
-            visiting.Add(jobName);
-
-            if (jobs.TryGetValue(jobName, out var job))
-            {
-                foreach (var dependency in job.DependsOn)
-                {
-                    Visit(dependency);
-                }
-            }
-
-            visiting.Remove(jobName);
-            visited.Add(jobName);
-            result.Add(jobName);
-        }
-
-        foreach (var jobName in jobs.Keys)
-        {
-            Visit(jobName);
-        }
-
-        return result;
-    }
-
-    private static Dictionary<string, string> RunnerServiceBuildEnvironment(Pipeline pipeline)
-    {
-        var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables())
-        {
-            if (entry.Key is string key && entry.Value is string value)
-            {
-                env[key] = value;
-            }
-        }
-
-        foreach (var kvp in pipeline.Variables)
-        {
-            env[kvp.Key] = kvp.Value;
-        }
-
-        return env;
-    }
-
-    private static Dictionary<string, string> RunnerServiceMergeEnvironments(
-        Dictionary<string, string> baseEnv,
-        Dictionary<string, string> overrideEnv)
-    {
-        var result = new Dictionary<string, string>(baseEnv, StringComparer.OrdinalIgnoreCase);
-
-        foreach (var kvp in overrideEnv)
-        {
-            result[kvp.Key] = kvp.Value;
-        }
-
-        return result;
     }
 }

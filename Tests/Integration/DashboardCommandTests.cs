@@ -11,28 +11,22 @@ using Xunit;
 
 namespace Tests.Integration;
 
+[Collection("Integration Tests")]
 public class DashboardCommandTests : IDisposable
 {
     private readonly TestRailwayRepository _repo;
     private readonly string _originalDir;
-    private readonly string _databasePath;
 
     public DashboardCommandTests()
     {
         _originalDir = Directory.GetCurrentDirectory();
         _repo = new TestRailwayRepository();
-        _databasePath = Path.Combine(Path.GetTempPath(), "railway_test_db_" + Guid.NewGuid());
-        TestServiceRegistrar.RegisterServices(_databasePath);
     }
 
     public void Dispose()
     {
         Directory.SetCurrentDirectory(_originalDir);
         _repo.Dispose();
-        if (Directory.Exists(_databasePath))
-        {
-            Directory.Delete(_databasePath, true);
-        }
     }
 
     private void SetRepoDirectory()
@@ -44,16 +38,15 @@ public class DashboardCommandTests : IDisposable
     public async Task Dashboard_ShowsRepositoryName()
     {
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
-        var app = new CommandApp(registrar);
+        var app = new CommandApp<DashboardCommand>(registrar);
         app.Configure(c =>
         {
             c.AddCommand<InitCommand>("init");
-            c.AddCommand<DashboardCommand>("");
         });
 
-        var result = await app.RunAsync([]);
+        var result = await app.RunAsync([], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
         Assert.Contains("Repository:", console.Output);
@@ -64,16 +57,15 @@ public class DashboardCommandTests : IDisposable
     public async Task Dashboard_NoPipelines_ShowsEmptyMessage()
     {
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
-        var app = new CommandApp(registrar);
+        var app = new CommandApp<DashboardCommand>(registrar);
         app.Configure(c =>
         {
             c.AddCommand<InitCommand>("init");
-            c.AddCommand<DashboardCommand>("");
         });
 
-        var result = await app.RunAsync([]);
+        var result = await app.RunAsync([], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
         Assert.Contains("Pipelines:", console.Output);
@@ -102,16 +94,15 @@ public class DashboardCommandTests : IDisposable
             """);
 
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
-        var app = new CommandApp(registrar);
+        var app = new CommandApp<DashboardCommand>(registrar);
         app.Configure(c =>
         {
             c.AddCommand<InitCommand>("init");
-            c.AddCommand<DashboardCommand>("");
         });
 
-        var result = await app.RunAsync([]);
+        var result = await app.RunAsync([], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
         Assert.Contains("build.yaml - name: build-pipeline", console.Output);
@@ -124,16 +115,15 @@ public class DashboardCommandTests : IDisposable
         _repo.WritePipeline("invalid.yaml", "invalid: yaml: [");
 
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
-        var app = new CommandApp(registrar);
+        var app = new CommandApp<DashboardCommand>(registrar);
         app.Configure(c =>
         {
             c.AddCommand<InitCommand>("init");
-            c.AddCommand<DashboardCommand>("");
         });
 
-        var result = await app.RunAsync([]);
+        var result = await app.RunAsync([], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
         Assert.Contains("invalid.yaml", console.Output);
@@ -153,7 +143,7 @@ public class DashboardCommandTests : IDisposable
             """);
 
         SetRepoDirectory();
-        var runConsole = new TestConsole();
+        var runConsole = TestConsoleFactory.Create();
         var runRegistrar = new TestTypeRegistrar(runConsole);
         var runApp = new CommandApp(runRegistrar);
         runApp.Configure(c =>
@@ -162,19 +152,18 @@ public class DashboardCommandTests : IDisposable
             c.AddCommand<RunCommand>("run");
         });
 
-        await runApp.RunAsync(["run", "build.yaml"]);
+        await runApp.RunAsync(["run", "build.yaml"], TestContext.Current.CancellationToken);
 
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
-        var app = new CommandApp(registrar);
+        var app = new CommandApp<DashboardCommand>(registrar);
         app.Configure(c =>
         {
             c.AddCommand<InitCommand>("init");
             c.AddCommand<RunCommand>("run");
-            c.AddCommand<DashboardCommand>("");
         });
 
-        var result = await app.RunAsync([]);
+        var result = await app.RunAsync([], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
         Assert.Contains("Recent Runs:", console.Output);
@@ -196,7 +185,7 @@ public class DashboardCommandTests : IDisposable
             """);
 
         SetRepoDirectory();
-        var runConsole = new TestConsole();
+        var runConsole = TestConsoleFactory.Create();
         var runRegistrar = new TestTypeRegistrar(runConsole);
         var runApp = new CommandApp(runRegistrar);
         runApp.Configure(c =>
@@ -205,19 +194,18 @@ public class DashboardCommandTests : IDisposable
             c.AddCommand<RunCommand>("run");
         });
 
-        await runApp.RunAsync(["run", "fail.yaml"]);
+        await runApp.RunAsync(["run", "fail.yaml"], TestContext.Current.CancellationToken);
 
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
-        var app = new CommandApp(registrar);
+        var app = new CommandApp<DashboardCommand>(registrar);
         app.Configure(c =>
         {
             c.AddCommand<InitCommand>("init");
             c.AddCommand<RunCommand>("run");
-            c.AddCommand<DashboardCommand>("");
         });
 
-        var result = await app.RunAsync([]);
+        var result = await app.RunAsync([], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
         Assert.Contains("Recent Runs:", console.Output);

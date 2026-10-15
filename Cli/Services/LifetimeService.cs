@@ -11,18 +11,18 @@ public sealed class LifetimeService
 		if (!typeof(TInterface).IsInterface)
 			throw new ArgumentException($"{nameof(TInterface)} must be an interface.");
 
-		_services.Add(typeof(TInterface), () => new TImplementation());
+		_services[typeof(TInterface)] = () => new TImplementation();
 	}
 
 	public static void Add<TInterface>(Func<TInterface> factory)
 		where TInterface : class
 	{
-		_services.Add(typeof(TInterface), factory);
+		_services[typeof(TInterface)] = factory;
 	}
 
 	public static void Add(object implementation)
 	{
-		_services.Add(implementation.GetType(), () => implementation);
+		_services[implementation.GetType()] = () => implementation;
 	}
 
 	public static TInterface Get<TInterface>()

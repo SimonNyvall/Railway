@@ -20,7 +20,7 @@ public class PipelineDiscoveryService : IPipelineDiscoveryService
 
         foreach (var file in pipelineFiles)
         {
-            var fileName = Path.GetRelativePath(pipelinesPath, file);
+            var fileName = Path.GetFileName(file);
             var (pipeline, error) = await PipelineHelper.TryParse(file);
 
             if (error != null)

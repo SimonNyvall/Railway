@@ -126,7 +126,7 @@ public class RunnerService : IRunnerService
         return run;
     }
 
-    private static List<string> TopologicalSort(Dictionary<string, Job> jobs)
+    internal static List<string> TopologicalSort(Dictionary<string, Job> jobs)
     {
         var visited = new HashSet<string>();
         var visiting = new HashSet<string>();
@@ -167,7 +167,7 @@ public class RunnerService : IRunnerService
         return result;
     }
 
-    private static Dictionary<string, string> BuildEnvironment(Pipeline pipeline)
+    internal static Dictionary<string, string> BuildEnvironment(Pipeline pipeline)
     {
         var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -187,7 +187,7 @@ public class RunnerService : IRunnerService
         return env;
     }
 
-    private static Dictionary<string, string> MergeEnvironments(
+    internal static Dictionary<string, string> MergeEnvironments(
         Dictionary<string, string> baseEnv,
         Dictionary<string, string> overrideEnv)
     {
@@ -225,13 +225,17 @@ public class RunnerService : IRunnerService
         var processStartInfo = new System.Diagnostics.ProcessStartInfo
         {
             FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "sh",
-            Arguments = OperatingSystem.IsWindows() ? $"/c \"{command}\"" : $"-c \"{command}\"",
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
+
+        // Pass the shell flag and the raw command as separate argv entries so that
+        // quoting inside the command (e.g. echo "Hello World") is preserved.
+        processStartInfo.ArgumentList.Add(OperatingSystem.IsWindows() ? "/c" : "-c");
+        processStartInfo.ArgumentList.Add(command);
 
         foreach (var kvp in env)
         {

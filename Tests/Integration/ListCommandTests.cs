@@ -11,6 +11,7 @@ using Xunit;
 
 namespace Tests.Integration;
 
+[Collection("Integration Tests")]
 public class ListCommandTests : IDisposable
 {
     private readonly TestRailwayRepository _repo;
@@ -31,17 +32,13 @@ public class ListCommandTests : IDisposable
     private void SetRepoDirectory()
     {
         Directory.SetCurrentDirectory(_repo.Path);
-        // Debug
-        Console.WriteLine($"Test working dir: {Directory.GetCurrentDirectory()}");
-        Console.WriteLine($"Repo path: {_repo.Path}");
-        Console.WriteLine($"Railway exists: {Directory.Exists(Path.Combine(_repo.Path, ".railway"))}");
     }
 
     [Fact]
     public async Task List_NoPipelines_ShowsEmptyMessage()
     {
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
         var app = new CommandApp(registrar);
         app.Configure(c =>
@@ -50,7 +47,7 @@ public class ListCommandTests : IDisposable
             c.AddCommand<ListCommand>("list");
         });
 
-        var result = await app.RunAsync(["list"]);
+        var result = await app.RunAsync(["list"], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
         Assert.Contains("No pipelines found", console.Output);

@@ -1,3 +1,4 @@
+using Cli.Commands;
 using Cli.Handlers;
 using Cli.Handlers.Interfaces;
 using Cli.Helpers;
@@ -5,26 +6,29 @@ using Cli.Infrastructure;
 using Cli.Services;
 using Cli.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Testing;
 
 namespace Tests.Infrastructure;
 
+/// <summary>
+/// Spectre <see cref="ITypeRegistrar"/> backed by Microsoft.Extensions.DependencyInjection.
+/// The container resolves <c>IEnumerable&lt;T&gt;</c> natively (e.g.
+/// <c>IEnumerable&lt;IHelpProvider&gt;</c>), which the previous hand-rolled
+/// Activator-based resolver could not, causing every CommandApp.RunAsync to return -1.
+/// </summary>
 public class TestTypeRegistrar : ITypeRegistrar
 {
-    private readonly Dictionary<Type, Func<object>> _factories = [];
-    private readonly Dictionary<Type, Type> _typeMap = [];
+    private readonly IServiceCollection _services = new ServiceCollection();
 
     public TestTypeRegistrar(TestConsole? console = null, string? databasePath = null)
     {
         if (console != null)
         {
-            RegisterInstance(typeof(TestConsole), console);
-            var iconsoleType = Type.GetType("Spectre.Console.IConsole, Spectre.Console");
-            if (iconsoleType != null)
-            {
-                RegisterInstance(iconsoleType, console);
-            }
+            _services.AddSingleton<TestConsole>(console);
+            _services.AddSingleton<IAnsiConsole>(console);
         }
 
         // Register all CLI services for testing with isolated database
@@ -40,98 +44,89 @@ public class TestTypeRegistrar : ITypeRegistrar
             .UseSqlite($"Data Source={dbPath}/data.db")
             .Options;
 
-        var dbContext = new RailwayDbContext(options);
-        dbContext.Database.EnsureCreated();
-
-        // Register core services
-        var validateService = new ValidateService();
-        var pipelineDiscoveryService = new PipelineDiscoveryService();
-        var runnerService = new RunnerService(dbContext);
-        var dashboardService = new DashboardService(dbContext);
-        var pipelineService = new PipelineService(dbContext);
-
-        // Register services as instances (using interface-accepting constructors)
-        RegisterInstance(typeof(RailwayDbContext), dbContext);
-        RegisterInstance(typeof(IValidateService), validateService);
-        RegisterInstance(typeof(IPipelineDiscoveryService), pipelineDiscoveryService);
-        RegisterInstance(typeof(IRunnerService), runnerService);
-        RegisterInstance(typeof(IDashboardService), dashboardService);
-        RegisterInstance(typeof(IPipelineService), pipelineService);
-
-        // Register handlers with their dependencies
-        RegisterInstance(typeof(IInitHandler), new InitHandler());
-        RegisterInstance(typeof(IValidationHandler), new ValidationHandler(validateService));
-        RegisterInstance(typeof(IListHandler), new ListHandler(pipelineDiscoveryService));
-        RegisterInstance(typeof(IRunHandler), new RunHandler(runnerService, pipelineDiscoveryService, validateService));
-        RegisterInstance(typeof(IDashboardHandler), new DashboardHandler(dashboardService));
-
-        // Register Spectre.Console.Cli required services
-        var helpProviderType = Type.GetType("Spectre.Console.Cli.Help.IHelpProvider, Spectre.Console.Cli");
-        if (helpProviderType != null)
+        using (var dbContext = new RailwayDbContext(options))
         {
-            var defaultHelpProviderType = Type.GetType("Spectre.Console.Cli.Help.DefaultHelpProvider, Spectre.Console.Cli");
-            if (defaultHelpProviderType != null)
-            {
-                Register(helpProviderType, defaultHelpProviderType);
-            }
+            dbContext.Database.EnsureCreated();
         }
 
-        var typeResolverType = Type.GetType("Spectre.Console.Cli.ITypeResolver, Spectre.Console.Cli");
-        var defaultTypeResolverType = Type.GetType("Spectre.Console.Cli.DefaultTypeResolver, Spectre.Console.Cli");
-        if (typeResolverType != null && defaultTypeResolverType != null)
-        {
-            Register(typeResolverType, defaultTypeResolverType);
-        }
+        // Context factory — a new context per resolve, mirroring prod LifetimeService registration
+        _services.AddTransient(_ => new RailwayDbContext(options));
+
+        // Services (mirror Cli/Program.cs LifetimeService registrations)
+        _services.AddTransient<IValidateService, ValidateService>();
+        _services.AddTransient<IPipelineDiscoveryService, PipelineDiscoveryService>();
+        _services.AddTransient<IRunnerService, RunnerService>();
+        _services.AddTransient<IDashboardService, DashboardService>();
+        _services.AddTransient<IPipelineService, PipelineService>();
+
+        // Handlers
+        _services.AddTransient<IInitHandler, InitHandler>();
+        _services.AddTransient<IValidationHandler, ValidationHandler>();
+        _services.AddTransient<IListHandler, ListHandler>();
+        _services.AddTransient<IRunHandler, RunHandler>();
+        _services.AddTransient<IDashboardHandler, DashboardHandler>();
+
+        // Command types, so Spectre can construct them through the resolver
+        // (Spectre also re-registers these via RegisterDependencies before each run)
+        _services.AddTransient<InitCommand>();
+        _services.AddTransient<ValidateCommand>();
+        _services.AddTransient<ListCommand>();
+        _services.AddTransient<RunCommand>();
+        _services.AddTransient<DashboardCommand>();
     }
 
+    /// <inheritdoc/>
     public void Register(Type service, Type implementation)
     {
-        _typeMap[service] = implementation;
+        _services.AddTransient(service, implementation);
     }
 
+    /// <inheritdoc/>
     public void RegisterInstance(Type service, object implementation)
     {
-        _factories[service] = () => implementation;
+        _services.AddSingleton(service, implementation);
     }
 
+    /// <inheritdoc/>
     public void RegisterLazy(Type service, Func<object> factory)
     {
-        _factories[service] = factory;
+        _services.AddTransient(service, _ => factory());
     }
 
+    /// <inheritdoc/>
     public ITypeResolver Build()
     {
-        return new TestTypeResolver(_factories, _typeMap);
+        // Build a fresh provider per run so registrations made by Spectre after
+        // the registrar was constructed (command/settings types, IConfiguration,
+        // CommandModel, ...) are visible to the resolver for that run.
+        return new TestTypeResolver(_services.BuildServiceProvider());
     }
 
     private class TestTypeResolver : ITypeResolver
     {
-        private readonly Dictionary<Type, Func<object>> _factories;
-        private readonly Dictionary<Type, Type> _typeMap;
+        private readonly ServiceProvider _provider;
 
-        public TestTypeResolver(Dictionary<Type, Func<object>> factories, Dictionary<Type, Type> typeMap)
+        public TestTypeResolver(ServiceProvider provider)
         {
-            _factories = factories;
-            _typeMap = typeMap;
+            _provider = provider;
         }
 
+        /// <inheritdoc/>
         public object? Resolve(Type? type)
         {
             if (type == null) return null;
 
-            if (_factories.TryGetValue(type, out var factory))
+            // GetService returns null for unregistered types; Spectre's
+            // TypeResolverAdapter falls back to Activator.CreateInstance then.
+            // Never throw from here — an exception becomes a hard -1 exit code.
+            try
             {
-                return factory();
+                return _provider.GetService(type);
             }
-
-            if (_typeMap.TryGetValue(type, out var implementationType))
+            catch (InvalidOperationException)
             {
-                return Activator.CreateInstance(implementationType);
+                return null;
             }
-
-            return Activator.CreateInstance(type);
         }
-
-        public T Resolve<T>() => (T)Resolve(typeof(T))!;
     }
 }

@@ -7,7 +7,7 @@ namespace Cli.Handlers;
 
 public class InitHandler : IInitHandler
 {
-    public async Task Handle()
+    public async Task<bool> Handle()
     {
         var rootRepositoryPath = RepositoryHelper.GetRootRepositoryPath();
 
@@ -16,7 +16,7 @@ public class InitHandler : IInitHandler
             AnsiConsole.WriteLine(
                 "fatal: not a git repository (or any of the parent directories): .git"
             );
-            return;
+            return false;
         }
 
         var railwayPath = Path.Combine(rootRepositoryPath, RepositoryHelper.RailwayFolderName);
@@ -55,11 +55,13 @@ public class InitHandler : IInitHandler
             AnsiConsole.WriteLine(
                 $"Reinitialized existing Railway repository in {Path.Combine(rootRepositoryPath, ".git")}"
             );
-            return;
+            return true;
         }
 
         AnsiConsole.WriteLine(
             $"Initialized empty Railway repository in {Path.Combine(rootRepositoryPath, ".git")}"
         );
+
+        return true;
     }
 }

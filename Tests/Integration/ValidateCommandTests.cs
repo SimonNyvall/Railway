@@ -11,6 +11,7 @@ using Xunit;
 
 namespace Tests.Integration;
 
+[Collection("Integration Tests")]
 public class ValidateCommandTests : IDisposable
 {
     private readonly TestRailwayRepository _repo;
@@ -47,7 +48,7 @@ public class ValidateCommandTests : IDisposable
             """);
 
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
         var app = new CommandApp(registrar);
         app.Configure(c =>
@@ -56,7 +57,7 @@ public class ValidateCommandTests : IDisposable
             c.AddCommand<ValidateCommand>("validate");
         });
 
-        var result = await app.RunAsync(["validate", pipelinePath]);
+        var result = await app.RunAsync(["validate", pipelinePath], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, result);
         Assert.Contains("Pipeline: build-pipeline", console.Output);
@@ -81,7 +82,7 @@ public class ValidateCommandTests : IDisposable
             """);
 
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
         var app = new CommandApp(registrar);
         app.Configure(c =>
@@ -90,7 +91,7 @@ public class ValidateCommandTests : IDisposable
             c.AddCommand<ValidateCommand>("validate");
         });
 
-        var result = await app.RunAsync(["validate", pipelinePath]);
+        var result = await app.RunAsync(["validate", pipelinePath], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result);
         Assert.Contains("Pipeline is invalid", console.Output);
@@ -104,7 +105,7 @@ public class ValidateCommandTests : IDisposable
         File.WriteAllText(txtPath, "not a yaml file");
 
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
         var app = new CommandApp(registrar);
         app.Configure(c =>
@@ -113,7 +114,7 @@ public class ValidateCommandTests : IDisposable
             c.AddCommand<ValidateCommand>("validate");
         });
 
-        var result = await app.RunAsync(["validate", txtPath]);
+        var result = await app.RunAsync(["validate", txtPath], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result);
         Assert.Contains("Not a yaml file", console.Output);
@@ -123,7 +124,7 @@ public class ValidateCommandTests : IDisposable
     public async Task Validate_NonExistentFile_ReturnsError()
     {
         SetRepoDirectory();
-        var console = new TestConsole();
+        var console = TestConsoleFactory.Create();
         var registrar = new TestTypeRegistrar(console);
         var app = new CommandApp(registrar);
         app.Configure(c =>
@@ -132,7 +133,7 @@ public class ValidateCommandTests : IDisposable
             c.AddCommand<ValidateCommand>("validate");
         });
 
-        var result = await app.RunAsync(["validate", "nonexistent.yaml"]);
+        var result = await app.RunAsync(["validate", "nonexistent.yaml"], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result);
         Assert.Contains("Not a valid path", console.Output);
