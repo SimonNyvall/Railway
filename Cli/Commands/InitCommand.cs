@@ -1,5 +1,4 @@
 using Cli.Handlers.Interfaces;
-using Cli.Services;
 using Spectre.Console.Cli;
 
 namespace Cli.Commands;
@@ -8,9 +7,9 @@ public class InitCommand : AsyncCommand
 {
 	private readonly IInitHandler _initHandler;
 
-    public InitCommand()
+    public InitCommand(IInitHandler initHandler)
     {
-        _initHandler = LifetimeService.Get<IInitHandler>();
+        _initHandler = initHandler;
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)

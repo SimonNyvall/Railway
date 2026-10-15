@@ -1,5 +1,4 @@
 using Xunit;
-using Tests.Infrastructure;
 
 namespace Tests.Integration;
 
@@ -16,8 +15,6 @@ public class IntegrationTestFixture : IDisposable
     {
         DbPath = Path.Combine(Path.GetTempPath(), "railway_test_db_" + Guid.NewGuid());
         Directory.CreateDirectory(DbPath);
-        // Register services in LifetimeService for command DI - once for all tests in collection
-        TestServiceRegistrar.RegisterServices(DbPath);
     }
 
     public void Dispose()

@@ -1,5 +1,8 @@
 # Handoff: Railway MVP — local pipelines CLI
 
+Status: **implemented** — MVP shipped (WS0–WS6); core logic subsequently
+extracted to `Engine/` (see `docs/tasks/engine-extraction.md`, steps 0–9 complete).
+
 ## Goal
 
 Ship the MVP of `railway`, a git-like CLI that runs local CI pipelines defined in
@@ -18,6 +21,9 @@ repo-scoped, and usable by both humans and agents (MCP later).
 "one pipeline → many repos" model. README MVP list must be updated to match.
 
 ## Current state (verified)
+
+> Note: the snapshot below predates the Engine extraction (steps 0–9). Current
+> layout/DI: see `AGENTS.md` and `docs/tasks/engine-extraction.md`.
 
 - .NET 10, single project `Cli/Cli.csproj`. Solution `Railway.slnx`.
 - CLI framework: `Spectre.Console.Cli`. Console UI: `Spectre.Console`.

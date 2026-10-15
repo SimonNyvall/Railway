@@ -1,6 +1,5 @@
-using Cli.Domain;
+using Railway.Engine.Domain;
 using Cli.Handlers.Interfaces;
-using Cli.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -10,9 +9,9 @@ public class DashboardCommand : AsyncCommand
 {
     private readonly IDashboardHandler _dashboardHandler;
 
-    public DashboardCommand()
+    public DashboardCommand(IDashboardHandler dashboardHandler)
     {
-        _dashboardHandler = LifetimeService.Get<IDashboardHandler>();
+        _dashboardHandler = dashboardHandler;
     }
 
     protected override async Task<int> ExecuteAsync(

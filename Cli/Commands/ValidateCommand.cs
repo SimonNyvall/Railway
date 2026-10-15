@@ -1,6 +1,5 @@
-using Cli.Domain;
+using Railway.Engine.Domain;
 using Cli.Handlers.Interfaces;
-using Cli.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -16,9 +15,9 @@ public class ValidateCommand : AsyncCommand<ValidationSettings>
 {
     private readonly IValidationHandler _validationHandler;
 
-    public ValidateCommand()
+    public ValidateCommand(IValidationHandler validationHandler)
     {
-        _validationHandler = LifetimeService.Get<IValidationHandler>();
+        _validationHandler = validationHandler;
     }
 
     protected override async Task<int> ExecuteAsync(

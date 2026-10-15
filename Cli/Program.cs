@@ -1,16 +1,43 @@
 using Cli.Commands;
 using Cli.Handlers;
 using Cli.Handlers.Interfaces;
-using Cli.Helpers;
 using Cli.Infrastructure;
-using Cli.Services;
-using Cli.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Railway.Engine;
 using Spectre.Console.Cli;
 
-await RegisterServices();
+var services = new ServiceCollection();
+services.AddEngine();
 
-var app = new CommandApp<DashboardCommand>();
+// CLI handlers
+services.AddTransient<IInitHandler, InitHandler>();
+services.AddTransient<IValidationHandler, ValidationHandler>();
+services.AddTransient<IListHandler, ListHandler>();
+services.AddTransient<IRunHandler, RunHandler>();
+services.AddTransient<IDashboardHandler, DashboardHandler>();
+
+// command types (Spectre also re-registers them via the registrar)
+services.AddTransient<InitCommand>();
+services.AddTransient<ValidateCommand>();
+services.AddTransient<ListCommand>();
+services.AddTransient<RunCommand>();
+services.AddTransient<DashboardCommand>();
+
+// Bootstrap DB (Engine owns EnsureCreated). Preserve the old failure message text.
+try
+{
+    using var bootstrap = services.BuildServiceProvider();
+    await bootstrap.InitializeEngineAsync();
+}
+catch (InvalidOperationException ex)
+{
+    Console.WriteLine(ex.Message);
+    return 1;
+}
+
+var registrar = new MsDiTypeRegistrar(services);
+
+var app = new CommandApp<DashboardCommand>(registrar);
 
 app.Configure(config =>
 {
@@ -38,42 +65,3 @@ app.Configure(config =>
 });
 
 return await app.RunAsync(args);
-
-async Task RegisterServices()
-{
-    LifetimeService.Add<IInitHandler, InitHandler>();
-
-    LifetimeService.Add<IPipelineService, PipelineService>();
-
-    LifetimeService.Add<IValidationHandler, ValidationHandler>();
-    LifetimeService.Add<IValidateService, ValidateService>();
-
-    LifetimeService.Add<IDashboardHandler, DashboardHandler>();
-    LifetimeService.Add<IDashboardService, DashboardService>();
-
-    LifetimeService.Add<IListHandler, ListHandler>();
-    LifetimeService.Add<IPipelineDiscoveryService, PipelineDiscoveryService>();
-
-    LifetimeService.Add<IRunHandler, RunHandler>();
-    LifetimeService.Add<IRunnerService, RunnerService>();
-
-    var databasePath = DatabasePathHelper.Get();
-
-    if (!DatabasePathHelper.CreatePathIfNotExist(databasePath))
-    {
-        Console.WriteLine($"The path: {databasePath} could not be created");
-    }
-
-    var options = new DbContextOptionsBuilder<RailwayDbContext>()
-        .UseSqlite($"Data Source={databasePath}/data.db")
-        .Options;
-
-    // Create and ensure database exists
-    await using (var dbContext = new RailwayDbContext(options))
-    {
-        await dbContext.Database.EnsureCreatedAsync();
-    }
-
-    // Register factory for creating new contexts per request
-    LifetimeService.Add<RailwayDbContext>(() => new RailwayDbContext(options));
-}

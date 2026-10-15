@@ -1,6 +1,7 @@
-using Cli.Domain;
+using Railway.Engine.Domain;
 using Cli.Handlers;
-using Cli.Services.Interfaces;
+using Railway.Engine.Orchestration;
+using Railway.Engine.Services.Interfaces;
 using FakeItEasy;
 using Tests.Infrastructure;
 using Xunit;
@@ -9,7 +10,8 @@ namespace Tests.Unit;
 
 /// <summary>
 /// Unit tests for the real <see cref="DashboardHandler"/> driven by a FakeItEasy
-/// fake for <see cref="IDashboardService"/>.
+/// fake for <see cref="IDashboardService"/> behind the real
+/// <see cref="DashboardQuery"/> orchestrator.
 /// <para>
 /// Serialized with the <c>Integration Tests</c> collection because the handler
 /// writes to the process-wide <see cref="Spectre.Console.AnsiConsole"/>.
@@ -21,8 +23,8 @@ public class DashboardHandlerTests
     private static DashboardHandler CreateHandler(DashboardView view)
     {
         var dashboardService = A.Fake<IDashboardService>();
-        A.CallTo(() => dashboardService.GetView()).Returns(view);
-        return new DashboardHandler(dashboardService);
+        A.CallTo(() => dashboardService.GetView(A<string>._)).Returns(view);
+        return new DashboardHandler(new DashboardQuery(dashboardService));
     }
 
     [Fact]

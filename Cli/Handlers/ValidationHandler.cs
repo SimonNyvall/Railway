@@ -1,55 +1,32 @@
-using Cli.Domain;
+using Railway.Engine.Domain;
 using Cli.Handlers.Interfaces;
-using Cli.Helpers;
-using Cli.Services;
-using Cli.Services.Interfaces;
+using Railway.Engine.Orchestration;
+using Railway.Engine.Orchestration.Interfaces;
 using Spectre.Console;
 
 namespace Cli.Handlers;
 
 public class ValidationHandler : IValidationHandler
 {
-    private readonly IValidateService _validateService;
+    private readonly IPipelineValidator _pipelineValidator;
 
-    public ValidationHandler() : this(LifetimeService.Get<IValidateService>())
+    public ValidationHandler(IPipelineValidator pipelineValidator)
     {
-    }
-
-    public ValidationHandler(IValidateService validateService)
-    {
-        _validateService = validateService;
+        _pipelineValidator = pipelineValidator;
     }
 
     public async Task<bool> Handle(string path)
     {
-        if (!IsFileYaml(path))
+        var result = await _pipelineValidator.ValidateAsync(path);
+
+        if (result.Errors.Count == 0)
         {
-            throw new ArgumentException("Not a yaml file.");
-        }
-
-        if (!Path.Exists(path))
-        {
-            throw new ArgumentException("Not a valid path.");
-        }
-
-        var pipeline = await PipelineHelper.Parse(path);
-
-        var errors = (await _validateService.IsValid(pipeline)).ToList();
-
-        if (errors.Count == 0)
-        {
-            PrintValidOutput(pipeline);
+            PrintValidOutput(result.Pipeline);
             return true;
         }
 
-        PrintInvalidOutput(errors);
+        PrintInvalidOutput(result.Errors);
         return false;
-    }
-
-    private static bool IsFileYaml(string path)
-    {
-        return path.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)
-            || path.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void PrintValidOutput(Pipeline pipeline)
