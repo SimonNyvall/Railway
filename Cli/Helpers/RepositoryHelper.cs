@@ -1,25 +1,48 @@
+using Cli.Domain;
+
 namespace Cli.Helpers;
 
 public static class RepositoryHelper
 {
-    public static string? GetRootRepositoryPath()
+    public const string RailwayFolderName = ".railway";
+    public const string PipelinesFolderName = "pipelines";
+    public const string ManifestFileName = "railway.yaml";
+
+    public static string? GetRootRepositoryPath() =>
+        FindUpwards(path => Directory.Exists(Path.Combine(path, ".git")));
+
+    public static string? GetRailwayPath()
     {
-        var currentDirectory = Directory.GetCurrentDirectory();
+        var rootPath = FindUpwards(path =>
+            Directory.Exists(Path.Combine(path, RailwayFolderName))
+        );
 
-        return Search(currentDirectory);
+        return rootPath == null ? null : Path.Combine(rootPath, RailwayFolderName);
+    }
 
-        static string? Search(string? path)
+    public static string GetRailwayPathOrThrow() =>
+        GetRailwayPath() ?? throw new NotARailwayRepositoryException();
+
+    public static string GetPipelinesPath(string railwayPath) =>
+        Path.Combine(railwayPath, PipelinesFolderName);
+
+    public static string GetManifestPath(string railwayPath) =>
+        Path.Combine(railwayPath, ManifestFileName);
+
+    private static string? FindUpwards(Func<string, bool> predicate)
+    {
+        var current = Directory.GetCurrentDirectory();
+
+        while (current != null)
         {
-            if (path == null)
+            if (predicate(current))
             {
-                return null;
+                return current;
             }
 
-            var directoriesInDirectory = Directory.GetDirectories(path);
-
-            return directoriesInDirectory.Contains(Path.Combine(path, ".git"))
-                ? path
-                : Search(Directory.GetParent(path)?.FullName);
+            current = Directory.GetParent(current)?.FullName;
         }
+
+        return null;
     }
 }

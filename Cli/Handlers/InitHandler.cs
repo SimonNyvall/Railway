@@ -1,3 +1,4 @@
+using Cli.Domain;
 using Cli.Handlers.Interfaces;
 using Cli.Helpers;
 using Spectre.Console;
@@ -8,9 +9,9 @@ public class InitHandler : IInitHandler
 {
     public async Task Handle()
     {
-        var rootRepositorPath = RepositoryHelper.GetRootRepositoryPath();
+        var rootRepositoryPath = RepositoryHelper.GetRootRepositoryPath();
 
-        if (rootRepositorPath == null)
+        if (rootRepositoryPath == null)
         {
             AnsiConsole.WriteLine(
                 "fatal: not a git repository (or any of the parent directories): .git"
@@ -18,7 +19,7 @@ public class InitHandler : IInitHandler
             return;
         }
 
-        var railwayPath = Path.Combine(rootRepositorPath, ".railway");
+        var railwayPath = Path.Combine(rootRepositoryPath, RepositoryHelper.RailwayFolderName);
 
         var hasMadeChanges = false;
 
@@ -28,32 +29,37 @@ public class InitHandler : IInitHandler
             hasMadeChanges = true;
         }
 
-        var railwayYamlPath = Path.Combine(railwayPath, "railway.yaml");
+        var manifestPath = RepositoryHelper.GetManifestPath(railwayPath);
 
-        if (!File.Exists(railwayYamlPath))
+        if (!File.Exists(manifestPath))
         {
-            File.Create(railwayYamlPath);
+            var manifest = new RailwayManifest
+            {
+                Name = new DirectoryInfo(rootRepositoryPath).Name,
+                Pipelines = []
+            };
+            await RailwayManifestHelper.Write(railwayPath, manifest);
             hasMadeChanges = true;
         }
 
-        var pipelinePath = Path.Combine(railwayPath, "pipelines");
+        var pipelinesPath = RepositoryHelper.GetPipelinesPath(railwayPath);
 
-        if (!Directory.Exists(pipelinePath))
+        if (!Directory.Exists(pipelinesPath))
         {
-            Directory.CreateDirectory(pipelinePath);
+            Directory.CreateDirectory(pipelinesPath);
             hasMadeChanges = true;
         }
 
         if (!hasMadeChanges)
         {
             AnsiConsole.WriteLine(
-                $"Reinitialized existing Railway repository in {Path.Combine(rootRepositorPath, ".git")}"
+                $"Reinitialized existing Railway repository in {Path.Combine(rootRepositoryPath, ".git")}"
             );
             return;
         }
 
         AnsiConsole.WriteLine(
-            $"Initialized empty Railway repository in {Path.Combine(rootRepositorPath, ".git")}"
+            $"Initialized empty Railway repository in {Path.Combine(rootRepositoryPath, ".git")}"
         );
     }
 }

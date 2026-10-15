@@ -1,5 +1,7 @@
+using Cli.Domain;
 using Cli.Handlers.Interfaces;
 using Cli.Services;
+using Spectre.Console;
 using Spectre.Console.Cli;
 
 namespace Cli.Commands;
@@ -30,8 +32,14 @@ public class ValidateCommand : AsyncCommand<ValidationSettings>
             await _validationHandler.Handle(settings.Name);
             return 0;
         }
-        catch
+        catch (NotARailwayRepositoryException ex)
         {
+            AnsiConsole.WriteLine(ex.Message);
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            AnsiConsole.WriteException(ex);
             return 1;
         }
     }

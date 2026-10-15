@@ -14,6 +14,12 @@ public sealed class LifetimeService
 		_services.Add(typeof(TInterface), () => new TImplementation());
 	}
 
+	public static void Add<TInterface>(Func<TInterface> factory)
+		where TInterface : class
+	{
+		_services.Add(typeof(TInterface), factory);
+	}
+
 	public static void Add(object implementation)
 	{
 		_services.Add(implementation.GetType(), () => implementation);

@@ -4,49 +4,55 @@ using Cli.Helpers;
 using Cli.Services;
 using Cli.Services.Interfaces;
 using Spectre.Console;
+
 namespace Cli.Handlers;
 
 public class ValidationHandler : IValidationHandler
 {
-	private readonly IValidateService _validateService;
+    private readonly IValidateService _validateService;
 
-    public ValidationHandler()
+    public ValidationHandler() : this(LifetimeService.Get<IValidateService>())
     {
-    	_validateService = LifetimeService.Get<IValidateService>();
+    }
+
+    public ValidationHandler(IValidateService validateService)
+    {
+        _validateService = validateService;
     }
 
     public async Task Handle(string path)
-	{
-		if (!IsFileYaml(path))
-		{
-			throw new ArgumentException("Not a yaml file.");
-		}
+    {
+        if (!IsFileYaml(path))
+        {
+            throw new ArgumentException("Not a yaml file.");
+        }
 
-		if (!Path.Exists(path))
-		{
-			throw new ArgumentException("Not a valid path.");
-		}
+        if (!Path.Exists(path))
+        {
+            throw new ArgumentException("Not a valid path.");
+        }
 
-		var pipeline = await PipelineHelper.Parse(path);
+        var pipeline = await PipelineHelper.Parse(path);
 
-		var errors = (await _validateService.IsValid(pipeline)).ToList();
+        var errors = (await _validateService.IsValid(pipeline)).ToList();
 
-		if (errors.Count == 0)
-		{
-			PrintValidOutput(pipeline);
-			return;
-		}
+        if (errors.Count == 0)
+        {
+            PrintValidOutput(pipeline);
+            return;
+        }
 
         PrintInvalidOutput(errors);
-	}
+    }
 
-	private static bool IsFileYaml(string path)
-	{
-		return path.EndsWith(".yml") || path.EndsWith(".yaml");
-	}
+    private static bool IsFileYaml(string path)
+    {
+        return path.EndsWith(".yml", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase);
+    }
 
-	private static void PrintValidOutput(Pipeline pipeline)
-	{
+    private static void PrintValidOutput(Pipeline pipeline)
+    {
         AnsiConsole.MarkupLine($"[bold]Pipeline:[/] {pipeline.Name}");
         AnsiConsole.WriteLine();
 
@@ -83,10 +89,10 @@ public class ValidationHandler : IValidationHandler
 
             AnsiConsole.WriteLine();
         }
-	}
+    }
 
-	private static void PrintInvalidOutput(IEnumerable<string> errors)
-	{
+    private static void PrintInvalidOutput(IEnumerable<string> errors)
+    {
         AnsiConsole.MarkupLine("[red]✗ Pipeline is invalid[/]");
         AnsiConsole.WriteLine();
 

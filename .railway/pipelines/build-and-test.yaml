@@ -1,0 +1,19 @@
+name: Build and Test
+
+variables:
+  DOTNET_NOLOGO: "true"
+
+jobs:
+  build:
+    steps:
+      - name: Restore
+        run: dotnet restore Railway.slnx
+      - name: Build
+        run: dotnet build Railway.slnx --no-restore
+
+  test:
+    depends_on:
+      - build
+    steps:
+      - name: Test
+        run: dotnet test --no-build
