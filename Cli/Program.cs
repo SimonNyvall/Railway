@@ -15,6 +15,7 @@ services.AddTransient<IValidationHandler, ValidationHandler>();
 services.AddTransient<IListHandler, ListHandler>();
 services.AddTransient<IRunHandler, RunHandler>();
 services.AddTransient<IDashboardHandler, DashboardHandler>();
+services.AddTransient<IConvertHandler, ConvertHandler>();
 
 // command types (Spectre also re-registers them via the registrar)
 services.AddTransient<InitCommand>();
@@ -22,6 +23,7 @@ services.AddTransient<ValidateCommand>();
 services.AddTransient<ListCommand>();
 services.AddTransient<RunCommand>();
 services.AddTransient<DashboardCommand>();
+services.AddTransient<ConvertCommand>();
 
 // Bootstrap DB (Engine owns EnsureCreated). Preserve the old failure message text.
 try
@@ -57,6 +59,12 @@ app.Configure(config =>
     config
         .AddCommand<RunCommand>("run")
         .WithDescription("Run a pipeline in the current repository.");
+
+    config
+        .AddCommand<ConvertCommand>("convert")
+        .WithDescription(
+            "Convert a GitHub Actions / GitLab / Azure DevOps YAML file into a Railway pipeline."
+        );
 
 #if DEBUG
     config.PropagateExceptions();

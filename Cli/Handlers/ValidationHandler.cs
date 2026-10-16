@@ -1,5 +1,6 @@
 using Railway.Engine.Domain;
 using Cli.Handlers.Interfaces;
+using Cli.Rendering;
 using Railway.Engine.Orchestration;
 using Railway.Engine.Orchestration.Interfaces;
 using Spectre.Console;
@@ -37,36 +38,7 @@ public class ValidationHandler : IValidationHandler
         AnsiConsole.MarkupLine("[green]✓ Pipeline is valid[/]");
         AnsiConsole.WriteLine();
 
-        AnsiConsole.MarkupLine($"[bold]Jobs:[/] {pipeline.Jobs.Count}");
-        AnsiConsole.WriteLine();
-
-        foreach (var (name, job) in pipeline.Jobs)
-        {
-            AnsiConsole.MarkupLine($"  [cyan]{name}[/]");
-
-            if (job.DependsOn.Count > 0)
-            {
-                AnsiConsole.MarkupLine(
-                    $"    [dim]Depends on:[/] {string.Join(", ", job.DependsOn)}"
-                );
-            }
-
-            AnsiConsole.MarkupLine($"    [dim]Steps:[/] {job.Steps.Count}");
-
-            foreach (var step in job.Steps)
-            {
-                var stepName = step.Name ?? "Unnamed step";
-
-                AnsiConsole.MarkupLine($"      [green]✓[/] {stepName}");
-
-                if (!string.IsNullOrWhiteSpace(step.Run))
-                {
-                    AnsiConsole.MarkupLine($"        [dim]{step.Run}[/]");
-                }
-            }
-
-            AnsiConsole.WriteLine();
-        }
+        PipelineTreeRenderer.RenderJobs(pipeline);
     }
 
     private static void PrintInvalidOutput(IEnumerable<string> errors)

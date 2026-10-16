@@ -51,6 +51,7 @@ public class TestTypeRegistrar : ITypeRegistrar
         _services.AddTransient<IListHandler, ListHandler>();
         _services.AddTransient<IRunHandler, RunHandler>();
         _services.AddTransient<IDashboardHandler, DashboardHandler>();
+        _services.AddTransient<IConvertHandler, ConvertHandler>();
 
         // Command types, so Spectre can construct them through the resolver
         // (Spectre also re-registers these via RegisterDependencies before each run)
@@ -59,6 +60,7 @@ public class TestTypeRegistrar : ITypeRegistrar
         _services.AddTransient<ListCommand>();
         _services.AddTransient<RunCommand>();
         _services.AddTransient<DashboardCommand>();
+        _services.AddTransient<ConvertCommand>();
 
         // Engine owns EnsureCreated; create the database before the tests use it.
         using var provider = _services.BuildServiceProvider();
