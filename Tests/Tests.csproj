@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="../Cli/Cli.csproj" />
     <ProjectReference Include="../Engine/Engine.csproj" />
+    <ProjectReference Include="../Mcp/Railway.Mcp.csproj" />
   </ItemGroup>
 
 </Project>

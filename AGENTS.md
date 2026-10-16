@@ -2,10 +2,11 @@
 
 ## Project Overview
 - **.NET 10** CLI (`Spectre.Console.Cli`) for local CI pipelines defined in `.railway/pipelines/*.yaml`
-- Solution `Railway.slnx` has three projects:
+- Solution `Railway.slnx` has four projects:
   - `Engine/` (`Railway.Engine`) — Domain / Helpers / Infrastructure / Services / Orchestration. **No Spectre, no cwd dependence, no static locator.**
   - `Cli/` — thin Spectre adapter: Commands map exceptions → exit codes; Handlers render Engine results.
-  - `Tests/` — xUnit, references both `Engine` and `Cli`.
+  - `Mcp/` (`Railway.Mcp`) — thin MCP adapter over the Engine (stdio transport, local-only).
+  - `Tests/` — xUnit, references `Engine`, `Cli`, and `Mcp`.
 - Persistence: EF Core + SQLite (`EnsureCreated()` on startup), DB in OS app-data dir; owned by Engine.
 
 ## Commands
@@ -21,6 +22,7 @@ dotnet test                        # Run tests (xUnit + Moq/FakeItEasy)
 - **Progress**: Engine emits `IProgress<RunEvent>` (`RunEventKind` enum: RunStarted/JobStarted/StepStarted/StandardOutput/StandardError/StepCompleted/JobCompleted/RunCompleted); hosts render or ignore.
 - **Repository resolution**: explicit `startPath` parameter (CLI passes `Directory.GetCurrentDirectory()`); Engine never reads cwd.
 - **Pipeline YAML**: parsed by `Engine/Helpers/PipelineHelper.cs` (YamlDotNet, UnderscoredNamingConvention).
+- **MCP host**: `Mcp/Program.cs` builds the host → `AddEngine()` → `InitializeEngineAsync()` → `AddMcpServer().WithStdioServerTransport().WithTools<...>()`. Tools live in `Mcp/Tools/`, resolve paths via `RailwayPathResolver`, and map Engine exceptions via `EngineExceptionMapper`.
 
 ## Important Conventions
 - All commands require `.railway` folder; fatal + hint to run `railway init` if missing
@@ -30,12 +32,13 @@ dotnet test                        # Run tests (xUnit + Moq/FakeItEasy)
 - Exit codes: `0` success, `1` failure; `--verbose` for details
 - Engine throws domain exceptions instead of rendering: `NotARailwayRepositoryException`, `NotAGitRepositoryException`, `PipelineFileNotFoundException`, `AmbiguousPipelineException`, `PipelineInvalidException` — CLI commands map them to messages/exit codes.
 
-## Future MCP integration points (enable only — no MCP project exists)
-- Consume `AddEngine(EngineOptions?)` + `await InitializeEngineAsync()` in any host.
-- Subscribe to progress via `IProgress<RunEvent>`.
-- Always pass an explicit repository path (never rely on cwd).
-- Handle Engine domain exceptions listed above rather than parsing output.
-- Public API is reflection-free and MS.DI-resolvable.
+## MCP Server (`Mcp/` — `Railway.Mcp`)
+- **Local-only, stdio transport**: the MCP client spawns the process; **never networked**, no HTTP listener, **no auth required**. No `--transport remote`.
+- **stdout is reserved for the MCP protocol** — all logs go to stderr (`LogToStandardErrorThreshold = LogLevel.Trace`); never `Console.WriteLine` to stdout.
+- **Path resolution precedence** (per tool): explicit `path` argument → `RAILWAY_REPO_PATH` env var → process cwd. Engine then walks upward for `.railway`.
+- **Tool inventory** (5): `list_pipelines(path?)`, `validate_pipeline(file, path?)`, `run_pipeline(file, verbose?, includeOutput?, path?)` (blocks, streams progress), `dashboard(path?)`, `runs(limit?, runId?, path?)`.
+- Run locally: `dotnet run --project Mcp`; client wiring + example `.mcp.json` in `Mcp/README.md`.
+- Engine integration points it consumes: `AddEngine(EngineOptions?)` + `await InitializeEngineAsync()`; `IProgress<RunEvent>`; explicit repository paths (never cwd); Engine domain exceptions handled via `EngineExceptionMapper` rather than parsing output. Public Engine API is reflection-free and MS.DI-resolvable.
 
 ## Testing
 - Unit tests: `Tests/Unit/` (mock interfaces via Moq/FakeItEasy)

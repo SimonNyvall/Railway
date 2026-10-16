@@ -1,5 +1,6 @@
 using Railway.Engine;
 using Railway.Engine.Infrastructure;
+using Railway.Engine.Orchestration.Interfaces;
 using Railway.Engine.Services.Interfaces;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,10 @@ public class EngineServiceCollectionExtensionsTests
             Assert.NotNull(provider.GetRequiredService<IPipelineDiscoveryService>());
             Assert.NotNull(provider.GetRequiredService<IDashboardService>());
             Assert.NotNull(provider.GetRequiredService<IRunnerService>());
+            Assert.NotNull(provider.GetRequiredService<IRunHistoryService>());
+            Assert.NotNull(provider.GetRequiredService<IRunHistoryQuery>());
+            Assert.NotNull(provider.GetRequiredService<IPipelineConvertService>());
+            Assert.NotNull(provider.GetRequiredService<IPipelineConverter>());
             Assert.NotNull(provider.GetRequiredService<RailwayDbContext>());
         }
         finally

@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="Cli/Cli.csproj" />
   <Project Path="Engine/Engine.csproj" />
+  <Project Path="Mcp/Railway.Mcp.csproj" />
   <Project Path="Tests/Tests.csproj" />
 </Solution>
