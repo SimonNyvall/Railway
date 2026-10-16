@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "description": "Run and inspect local Railway pipelines: list, validate, run, dashboard, and run history.",
+  "name": "io.github.SimonNyvall/Railway",
+  "title": "Railway",
+  "version": "0.1.0-beta",
+  "packages": [
+    {
+      "registryType": "nuget",
+      "identifier": "Railway.Mcp",
+      "version": "0.1.0-beta",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [],
+      "environmentVariables": [
+        {
+          "name": "RAILWAY_REPO_PATH",
+          "description": "Absolute path to the Railway repository to operate on. Optional: each tool falls back to its 'path' argument, then this variable, then the process working directory.",
+          "isRequired": false,
+          "format": "filepath"
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/SimonNyvall/Railway",
+    "source": "github"
+  }
+}
