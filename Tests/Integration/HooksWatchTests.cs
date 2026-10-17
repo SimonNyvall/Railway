@@ -120,6 +120,39 @@ public sealed class HooksWatchTests : IDisposable
     }
 
     [Fact]
+    public async Task Watch_Initial_SecondRunForWriteInPreexistingDirectory()
+    {
+        // A directory that exists before Start is inside the initial OS watch, so this case does not
+        // depend on the new-directory rescan: it is the deterministic companion to the test above.
+        Directory.CreateDirectory(Path.Combine(_repository.Path, "src"));
+
+        using var provider = CreateProvider();
+        var watcher = (HookWatcher)provider.GetRequiredService<IHookWatcher>();
+
+        using var cts = new CancellationTokenSource();
+        var watchTask = watcher.WatchAsync(
+            _repository.Path,
+            new HookWatchOptions(Debounce: Debounce, Initial: true, Notify: false),
+            progress: null,
+            cts.Token);
+
+        var initialCount = await WaitForRunCountAsync(1);
+        Assert.True(initialCount >= 1, "the --initial run should have executed immediately");
+
+        await WaitUntilWatchingAsync(watcher);
+
+        WriteWatchedFile("a.txt");
+        var afterWrite = await WaitForRunCountAsync(2);
+
+        Assert.True(afterWrite >= 2, "a write in a pre-existing directory should add a second run after --initial");
+
+        await Task.Delay(QuietWindow, TestContext.Current.CancellationToken);
+        Assert.Equal(2, CountRuns());
+
+        await StopAsync(watchTask, cts);
+    }
+
+    [Fact]
     public async Task Watch_Cancellation_StopsCleanly()
     {
         using var provider = CreateProvider();

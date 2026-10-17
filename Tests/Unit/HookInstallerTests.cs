@@ -421,6 +421,21 @@ public sealed class HookInstallerTests : IDisposable
     }
 
     [Fact]
+    public async Task Sync_WithOrphanBackupAndNoMatchingHook_LeavesItAndDoesNotThrow()
+    {
+        var repository = CreateRepository();
+        var backupPath = Path.Combine(repository.Path, ".git", "hooks", "post-commit" + HookScriptHelper.BackupSuffix);
+        File.WriteAllText(backupPath, "#!/bin/sh\necho orphan\n");
+
+        // A backup-suffixed entry with no matching hook must be skipped, never read on its own.
+        var result = await CreateInstaller(repository, Candidate("build.yaml", TriggerEvent.PostMerge)).Sync(repository.Path);
+
+        Assert.True(File.Exists(backupPath), "the orphan backup should be left untouched");
+        Assert.False(File.Exists(Path.Combine(repository.Path, ".git", "hooks", "post-commit")));
+        Assert.DoesNotContain(result.Removed, entry => entry.Contains(HookScriptHelper.BackupSuffix, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Sync_ReportsUpdatedWhenWrapperDrifted()
     {
         var repository = CreateRepository();

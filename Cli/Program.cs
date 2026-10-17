@@ -151,6 +151,11 @@ try
 {
     return await app.RunAsync(args, cancellation.Token);
 }
+catch (Spectre.Console.Cli.CommandParseException ex)
+{
+    Console.WriteLine($"Error: {ex.Message}");
+    return 1;
+}
 finally
 {
     Console.CancelKeyPress -= OnCancelKeyPress;

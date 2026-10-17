@@ -19,9 +19,12 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(options ?? new EngineOptions());
 
+        // "Default Timeout=30" is Microsoft.Data.Sqlite's busy timeout (seconds): it maps to
+        // sqlite3_busy_timeout, so a writer waiting on a locked database blocks up to 30s instead of
+        // failing immediately. Combined with SqliteRetryHelper this absorbs hook/CLI contention.
         services.AddSingleton<DbContextOptions<RailwayDbContext>>(_ =>
             new DbContextOptionsBuilder<RailwayDbContext>()
-                .UseSqlite($"Data Source={dbPath}/data.db")
+                .UseSqlite($"Data Source={dbPath}/data.db;Default Timeout=30")
                 .Options);
 
         services.AddTransient(sp =>

@@ -32,7 +32,7 @@ a new execution engine.
 | Cron → launchd gaps | Expand to `StartCalendarInterval` arrays when representable; otherwise `install`/`sync` **fails loudly** with pipeline + expression + suggested equivalent. Never silently drop a schedule |
 | CLI surface | `railway hooks install\|uninstall\|status\|sync\|watch` + `hooks run <event>` (nested branch) |
 | Testability | New narrow seams: `IScheduler` (launchd/crontab/schtasks + fake) and `ISystemCommandRunner`; git-hook install tested against real temp git repos |
-| Watch behavior | `hooks watch [--pipeline <file>] [--debounce 1s] [--initial]`: foreground until Ctrl+C, one process handles all watch triggers, ignores `.git`, `.railway`, gitignored paths, `bin/obj/node_modules`, no initial run unless `--initial` |
+| Watch behavior | `hooks watch [WATCH_PATH] [--pipeline <file>] [--debounce 1s] [--initial]`: foreground until Ctrl+C, one process handles all watch triggers, ignores `.git`, `.railway`, gitignored paths, `bin/obj/node_modules`, no initial run unless `--initial` |
 | Phasing | P1 commit hook end-to-end → P2 schedules → P3 push/merge/checkout → P4 watcher |
 | MCP | Untouched (no new MCP tools in v1) |
 

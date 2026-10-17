@@ -14,7 +14,7 @@ public class TestDatabaseFixture : IDisposable
         Directory.CreateDirectory(DatabasePath);
 
         Options = new DbContextOptionsBuilder<RailwayDbContext>()
-            .UseSqlite($"Data Source={DatabasePath}/data.db")
+            .UseSqlite($"Data Source={DatabasePath}/data.db;Default Timeout=30")
             .Options;
 
         using var context = new RailwayDbContext(Options);

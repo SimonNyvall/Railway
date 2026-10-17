@@ -96,7 +96,7 @@ public class HooksScheduleTests : IDisposable
     private RailwayDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<RailwayDbContext>()
-            .UseSqlite($"Data Source={_fixture.DbPath}/data.db")
+            .UseSqlite($"Data Source={_fixture.DbPath}/data.db;Default Timeout=30")
             .Options;
 
         return new RailwayDbContext(options);

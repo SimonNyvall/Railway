@@ -1,7 +1,9 @@
 using Cli.Commands;
+using Cli.Handlers.Interfaces;
 using Railway.Engine.Helpers;
 using Railway.Engine.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Testing;
 using Tests.Infrastructure;
@@ -68,9 +70,13 @@ public class HooksCommandTests : IDisposable
     }
 
     private async Task<(int ExitCode, TestConsole Console)> RunAsync(params string[] args)
+        => await RunAsync(_ => { }, args);
+
+    private async Task<(int ExitCode, TestConsole Console)> RunAsync(Action<TestTypeRegistrar> configure, params string[] args)
     {
         var console = TestConsoleFactory.Create();
         var registrar = CreateRegistrar(console);
+        configure(registrar);
         var app = new CommandApp(registrar);
         app.Configure(Configure);
 
@@ -78,10 +84,37 @@ public class HooksCommandTests : IDisposable
         return (exitCode, console);
     }
 
+    private async Task<(int ExitCode, TestConsole Console)> RunWithParseErrorHandlingAsync(params string[] args)
+        => await RunWithParseErrorHandlingAsync(_ => { }, args);
+
+    private async Task<(int ExitCode, TestConsole Console)> RunWithParseErrorHandlingAsync(Action<TestTypeRegistrar> configure, params string[] args)
+    {
+        var console = TestConsoleFactory.Create();
+        var registrar = CreateRegistrar(console);
+        configure(registrar);
+        var app = new CommandApp(registrar);
+        app.Configure(configurator =>
+        {
+            Configure(configurator);
+            configurator.PropagateExceptions();
+        });
+
+        try
+        {
+            var exitCode = await app.RunAsync(args, TestContext.Current.CancellationToken);
+            return (exitCode, console);
+        }
+        catch (Spectre.Console.Cli.CommandParseException ex)
+        {
+            AnsiConsole.WriteLine($"Error: {ex.Message}");
+            return (1, console);
+        }
+    }
+
     private RailwayDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<RailwayDbContext>()
-            .UseSqlite($"Data Source={_fixture.DbPath}/data.db")
+            .UseSqlite($"Data Source={_fixture.DbPath}/data.db;Default Timeout=30")
             .Options;
 
         return new RailwayDbContext(options);
@@ -251,6 +284,47 @@ public class HooksCommandTests : IDisposable
 
         Assert.Equal(1, exitCode);
         Assert.Contains("Invalid --debounce", console.Output);
+    }
+
+    private sealed class RecordingHooksWatchHandler : IHooksWatchHandler
+    {
+        public string? PathReceived { get; private set; }
+
+        public Task Handle(string? pipeline, TimeSpan? debounce, bool initial, string? path, bool verbose, CancellationToken ct = default)
+        {
+            PathReceived = path;
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task Watch_PositionalPath_BindsAndWatchesResolvedRepository()
+    {
+        var handler = new RecordingHooksWatchHandler();
+        var (exitCode, _) = await RunAsync(
+            registrar => registrar.RegisterInstance(typeof(IHooksWatchHandler), handler),
+            "hooks", "watch", _repo.Path);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(_repo.Path, handler.PathReceived);
+    }
+
+    [Fact]
+    public async Task Watch_ConflictingPathAndPositionalPath_ReturnsExitCodeOne()
+    {
+        var otherPath = Path.Combine(_lockRoot, "other");
+        Directory.CreateDirectory(otherPath);
+
+        var (exitCode, console) = await RunAsync("hooks", "watch", "--path", _repo.Path, otherPath);
+        Assert.Equal(1, exitCode);
+        Assert.Contains("Conflicting", console.Output);
+
+        // Same paths should not conflict
+        var handler = new RecordingHooksWatchHandler();
+        var (exitCode2, _) = await RunAsync(
+            registrar => registrar.RegisterInstance(typeof(IHooksWatchHandler), handler),
+            "hooks", "watch", "--path", _repo.Path, _repo.Path);
+        Assert.Equal(0, exitCode2);
     }
 
     [Fact]

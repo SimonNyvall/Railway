@@ -37,10 +37,10 @@ public class DashboardHandler : IDashboardHandler
                 }
                 else
                 {
-                    AnsiConsole.MarkupLine($"  [red]✗[/] [red]{pipeline.FileName}[/] - name: [dim](invalid)[/]");
+                    AnsiConsole.MarkupLine($"  [red]×[/] [red]{pipeline.FileName}[/] - name: [dim](invalid)[/]");
                     foreach (var error in pipeline.Errors)
                     {
-                        AnsiConsole.MarkupLine($"    [red]✗[/] {error}");
+                        AnsiConsole.MarkupLine($"    [red]×[/] {error}");
                     }
                 }
             }
@@ -59,10 +59,10 @@ public class DashboardHandler : IDashboardHandler
                 var statusMarkup = run.Status switch
                 {
                     RunStatus.Succeeded => "[green]✓ Succeeded[/]",
-                    RunStatus.Failed => $"[red]✗ Failed (exit {run.ExitCode})[/]",
-                    RunStatus.Running => "[yellow]⟳ Running[/]",
-                    RunStatus.Cancelled => "[dim]⊘ Cancelled[/]",
-                    RunStatus.Skipped => "[dim]⊘ Skipped[/]",
+                    RunStatus.Failed => $"[red]× Failed (exit {run.ExitCode})[/]",
+                    RunStatus.Running => "[yellow]↻ Running[/]",
+                    RunStatus.Cancelled => "[dim]– Cancelled[/]",
+                    RunStatus.Skipped => "[dim]– Skipped[/]",
                     _ => $"[dim]{run.Status}[/]"
                 };
 

@@ -34,11 +34,18 @@ public class HooksWatchCommand : AsyncCommand<HooksWatchSettings>
 
         try
         {
+            var path = settings.Path ?? settings.WatchPath;
+            if (settings.Path != null && settings.WatchPath != null && !string.Equals(settings.Path, settings.WatchPath, StringComparison.Ordinal))
+            {
+                AnsiConsole.MarkupLine("[red]Conflicting paths:[/] --path and WATCH_PATH specify different paths; use one.");
+                return 1;
+            }
+
             await _handler.Handle(
                 settings.Pipeline,
                 debounce,
                 settings.Initial,
-                settings.Path,
+                path,
                 settings.Verbose,
                 cancellationToken);
 
