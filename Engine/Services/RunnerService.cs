@@ -23,7 +23,9 @@ public class RunnerService : IRunnerService
             PipelineFileName = request.PipelineFileName,
             PipelineName = request.Pipeline.Name,
             StartedAt = DateTimeOffset.UtcNow,
-            Status = RunStatus.Running
+            Status = RunStatus.Running,
+            Trigger = request.Trigger,
+            TriggerDetail = request.TriggerDetail
         };
 
         _dbContext.Runs.Add(run);
@@ -325,7 +327,24 @@ public class RunnerService : IRunnerService
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        await process.WaitForExitAsync(cancellationToken);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Ctrl+C / host shutdown: the step's process tree must not outlive the cancelled run.
+            // The hook lock is released while this exception unwinds, so an orphaned command would
+            // keep running against a lock nobody holds any more.
+            ProcessTreeKiller.KillQuietly(process);
+
+            // Let the redirected readers observe EOF so disposing the process cannot lose buffered
+            // output. Bounded: a step that survives the kill must not hang the cancelled run.
+            await Task.WhenAny(Task.WhenAll(outputTcs.Task, errorTcs.Task), Task.Delay(1_000));
+
+            throw;
+        }
+
         await Task.WhenAll(outputTcs.Task, errorTcs.Task);
 
         progress?.Report(new RunEvent
@@ -355,8 +374,43 @@ public class RunnerService : IRunnerService
 
         var repository = new Repository { Path = normalizedPath };
         _dbContext.Repositories.Add(repository);
-        await _dbContext.SaveChangesAsync();
 
-        return repository.Id;
+        try
+        {
+            await _dbContext.SaveChangesAsync();
+            return repository.Id;
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            // Another writer inserted the row first: detach the failed entity so the next
+            // SaveChangesAsync doesn't retry the duplicate insert, then read the winner's id.
+            _dbContext.Entry(repository).State = EntityState.Detached;
+            var retry = await _dbContext.Repositories
+                .FirstOrDefaultAsync(r => r.Path == normalizedPath);
+            if (retry != null)
+            {
+                return retry.Id;
+            }
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// True when the update failed because of a UNIQUE constraint (SQLite error 19), i.e. a
+    /// concurrent writer inserted the same row first. The SQLite exception is matched by message so
+    /// the Engine does not take a direct dependency on <c>Microsoft.Data.Sqlite</c>.
+    /// </summary>
+    private static bool IsUniqueConstraintViolation(DbUpdateException ex)
+    {
+        for (var inner = ex.InnerException; inner is not null; inner = inner.InnerException)
+        {
+            if (inner.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

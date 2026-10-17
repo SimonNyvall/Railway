@@ -33,6 +33,8 @@ public class RailwayDbContext : DbContext
 				
 			entity.Ignore(e => e.Jobs);
 			entity.Ignore(e => e.Variables);
+			entity.Ignore(e => e.Triggers);
+			entity.Ignore(e => e.Notify);
 		});
 		
 		modelBuilder.Entity<Repository>(entity =>
@@ -42,6 +44,9 @@ public class RailwayDbContext : DbContext
 			entity.Property(x => x.Path)
 				.HasMaxLength(100)
 				.IsRequired();
+
+			entity.HasIndex(x => x.Path)
+				.IsUnique();
 		});
 		
 		modelBuilder.Entity<RepositoryPipeline>(entity =>

@@ -10,6 +10,9 @@ public class RunSettings : CommandSettings
     [CommandArgument(0, "<FILE_NAME>")]
     public required string FileName { get; set; }
 
+    [CommandOption("--path <PATH>")]
+    public string? Path { get; set; }
+
     [CommandOption("--verbose")]
     public bool Verbose { get; set; }
 }
@@ -31,7 +34,7 @@ public class RunCommand : AsyncCommand<RunSettings>
     {
         try
         {
-            await _runHandler.Handle(settings.FileName, settings.Verbose);
+            await _runHandler.Handle(settings.FileName, settings.Verbose, settings.Path);
             return 0;
         }
         catch (NotARailwayRepositoryException ex)

@@ -52,6 +52,12 @@ public class TestTypeRegistrar : ITypeRegistrar
         _services.AddTransient<IRunHandler, RunHandler>();
         _services.AddTransient<IDashboardHandler, DashboardHandler>();
         _services.AddTransient<IConvertHandler, ConvertHandler>();
+        _services.AddTransient<IHooksInstallHandler, HooksInstallHandler>();
+        _services.AddTransient<IHooksUninstallHandler, HooksUninstallHandler>();
+        _services.AddTransient<IHooksStatusHandler, HooksStatusHandler>();
+        _services.AddTransient<IHooksSyncHandler, HooksSyncHandler>();
+        _services.AddTransient<IHooksRunHandler, HooksRunHandler>();
+        _services.AddTransient<IHooksWatchHandler, HooksWatchHandler>();
 
         // Command types, so Spectre can construct them through the resolver
         // (Spectre also re-registers these via RegisterDependencies before each run)
@@ -61,6 +67,12 @@ public class TestTypeRegistrar : ITypeRegistrar
         _services.AddTransient<RunCommand>();
         _services.AddTransient<DashboardCommand>();
         _services.AddTransient<ConvertCommand>();
+        _services.AddTransient<HooksInstallCommand>();
+        _services.AddTransient<HooksUninstallCommand>();
+        _services.AddTransient<HooksStatusCommand>();
+        _services.AddTransient<HooksSyncCommand>();
+        _services.AddTransient<HooksRunCommand>();
+        _services.AddTransient<HooksWatchCommand>();
 
         // Engine owns EnsureCreated; create the database before the tests use it.
         using var provider = _services.BuildServiceProvider();

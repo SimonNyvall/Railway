@@ -16,14 +16,14 @@ public class RunHandler : IRunHandler
         _pipelineRunner = pipelineRunner;
     }
 
-    public async Task Handle(string fileName, bool verbose)
+    public async Task Handle(string fileName, bool verbose, string? path = null)
     {
         RunOutcome outcome;
 
         try
         {
             outcome = await _pipelineRunner.RunAsync(
-                Directory.GetCurrentDirectory(),
+                path ?? Directory.GetCurrentDirectory(),
                 fileName,
                 verbose,
                 new SpectreRunProgress(verbose));
@@ -41,9 +41,9 @@ public class RunHandler : IRunHandler
         catch (AmbiguousPipelineException ex)
         {
             AnsiConsole.MarkupLine($"[red]Multiple pipeline files match:[/] {ex.FileName}");
-            foreach (var path in ex.Candidates)
+            foreach (var candidatePath in ex.Candidates)
             {
-                AnsiConsole.MarkupLine($"  [dim]{path}[/]");
+                AnsiConsole.MarkupLine($"  [dim]{candidatePath}[/]");
             }
             throw new InvalidOperationException(ex.Message);
         }
@@ -71,6 +71,11 @@ public class RunHandler : IRunHandler
         if (run.Status == RunStatus.Succeeded)
         {
             AnsiConsole.MarkupLine("[green]✓ Pipeline completed successfully[/]");
+        }
+        else if (run.Status == RunStatus.Skipped)
+        {
+            // A skipped run is not a failure: another run held the pipeline lock, so nothing ran.
+            AnsiConsole.MarkupLine("[dim]⊘ Pipeline run skipped (another run is in progress)[/]");
         }
         else
         {
