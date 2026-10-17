@@ -3,6 +3,11 @@ name: Build and Test
 variables:
   DOTNET_NOLOGO: "true"
 
+notify: always
+
+triggers:
+  - post-commit
+
 jobs:
   build:
     steps:
