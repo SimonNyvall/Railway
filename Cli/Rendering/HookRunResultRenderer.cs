@@ -27,30 +27,30 @@ public static class HookRunResultRenderer
 
         if (result.Error is not null)
         {
-            AnsiConsole.MarkupLine($"{prefix}{indentPrefix}[red]✗[/] [cyan]{pipeline}[/] - {Markup.Escape(result.Error)}");
+            AnsiConsole.MarkupLine($"{prefix}{indentPrefix}[red]×[/] [cyan]{pipeline}[/] - {Markup.Escape(result.Error)}");
             return;
         }
 
         if (result.Skipped)
         {
             AnsiConsole.MarkupLine(
-                $"{prefix}{indentPrefix}[dim]⊘[/] [cyan]{pipeline}[/] - skipped (another run is in progress)");
+                $"{prefix}{indentPrefix}[dim]–[/] [cyan]{pipeline}[/] - skipped (another run is in progress)");
             return;
         }
 
         if (result.Detached)
         {
-            AnsiConsole.MarkupLine($"{prefix}{indentPrefix}[yellow]⟳[/] [cyan]{pipeline}[/] - detached");
+            AnsiConsole.MarkupLine($"{prefix}{indentPrefix}[yellow]↻[/] [cyan]{pipeline}[/] - detached");
             return;
         }
 
         var status = result.Status switch
         {
             RunStatus.Succeeded => "[green]✓[/] succeeded",
-            RunStatus.Failed => "[red]✗[/] failed",
-            RunStatus.Running => "[yellow]⟳[/] running",
-            RunStatus.Cancelled => "[dim]⊘[/] cancelled",
-            RunStatus.Skipped => "[dim]⊘[/] skipped",
+            RunStatus.Failed => "[red]×[/] failed",
+            RunStatus.Running => "[yellow]↻[/] running",
+            RunStatus.Cancelled => "[dim]–[/] cancelled",
+            RunStatus.Skipped => "[dim]–[/] skipped",
             _ => $"[dim]{result.Status}[/]",
         };
 

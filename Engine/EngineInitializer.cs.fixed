@@ -1,0 +1,557 @@
+using System.Text.RegularExpressions;
+
+using Railway.Engine.Helpers;
+using Railway.Engine.Infrastructure;
+
+using Microsoft.EntityFrameworkCore;
+
+namespace Railway.Engine;
+
+/// <summary>
+/// Default <see cref="IEngineInitializer"/> that creates the Engine database
+/// directory and calls <c>EnsureCreatedAsync</c> when
+/// <see cref="EngineOptions.InitializeDatabase"/> is enabled.
+/// </summary>
+public sealed class EngineInitializer : IEngineInitializer
+{
+    private readonly EngineOptions _options;
+    private readonly DbContextOptions<RailwayDbContext> _dbContextOptions;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="EngineInitializer"/> class.
+    /// </summary>
+    /// <param name="options">The Engine options controlling database initialization.</param>
+    /// <param name="dbContextOptions">The configured context options used to open the database.</param>
+    public EngineInitializer(EngineOptions options, DbContextOptions<RailwayDbContext> dbContextOptions)
+    {
+        _options = options;
+        _dbContextOptions = dbContextOptions;
+    }
+
+    /// <inheritdoc/>
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_options.InitializeDatabase)
+        {
+            return;
+        }
+
+        var dbPath = _options.DatabasePath ?? DatabasePathHelper.Get();
+
+        if (!DatabasePathHelper.CreatePathIfNotExist(dbPath))
+        {
+            throw new InvalidOperationException($"The path: {dbPath} could not be created");
+        }
+
+        await using var ctx = new RailwayDbContext(_dbContextOptions);
+        await ctx.Database.EnsureCreatedAsync(cancellationToken);
+        await EnsureSchemaUpgradesAsync(ctx, cancellationToken);
+    }
+
+    /// <summary>
+    /// Startup schema shim (no migration framework): <c>EnsureCreatedAsync</c> is a no-op on existing
+    /// databases, so databases created before a feature lack its schema. This adds the
+    /// <c>Run.Trigger</c>/<c>Run.TriggerDetail</c> columns when missing and repairs duplicate
+    /// <c>Repository.Path</c> rows before creating the unique index over that column. It is
+    /// idempotent and a no-op on up-to-date databases.
+    /// </summary>
+    private static async Task EnsureSchemaUpgradesAsync(RailwayDbContext ctx, CancellationToken cancellationToken)
+    {
+        var connection = ctx.Database.GetDbConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        await EnsureModelTablesAsync(ctx, connection, cancellationToken);
+        await EnsureRunProvenanceColumnsAsync(connection, cancellationToken);
+        await EnsureRepositoryPathUniqueIndexAsync(connection, cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds the run-provenance columns to legacy databases. <c>Trigger</c> gets
+    /// <c>NOT NULL DEFAULT 'manual'</c> so existing rows are backfilled. A no-op when both exist or
+    /// when <c>EnsureCreatedAsync</c> already owns a fresh schema.
+    /// </summary>
+    private static async Task EnsureRunProvenanceColumnsAsync(System.Data.Common.DbConnection connection, CancellationToken cancellationToken)
+    {
+        var table = await FindRunTableAsync(connection, cancellationToken);
+        if (table is null)
+        {
+            // EnsureCreated owns schema creation — never mask a missing table with a failed ALTER.
+            return;
+        }
+
+        var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using (var pragma = connection.CreateCommand())
+        {
+            pragma.CommandText = $"PRAGMA table_info(\"{table}\");";
+            await using var reader = await pragma.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                existingColumns.Add(reader.GetString(1)); // column name
+            }
+        }
+
+        if (!existingColumns.Contains("Trigger"))
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"ALTER TABLE \"{table}\" ADD COLUMN \"Trigger\" TEXT NOT NULL DEFAULT 'manual';";
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        if (!existingColumns.Contains("TriggerDetail"))
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"ALTER TABLE \"{table}\" ADD COLUMN \"TriggerDetail\" TEXT NULL;";
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Creates the unique index over <c>Repository.Path</c> when it is missing. Databases written
+    /// before the index existed may hold duplicate rows for the same path (the very race the index
+    /// guards against), so those are merged first: run history and pipeline links are re-pointed to
+    /// the surviving repository before the duplicates are deleted. Without this, <c>CREATE UNIQUE
+    /// INDEX</c> would fail and block startup.
+    /// </summary>
+    private static async Task EnsureRepositoryPathUniqueIndexAsync(
+        System.Data.Common.DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        var repositoriesTable = await FindRepositoriesTableAsync(connection, cancellationToken);
+        if (repositoriesTable is null)
+        {
+            return;
+        }
+
+        var indexName = "IX_Repositories_Path";
+
+        if (OperatingSystem.IsWindows())
+        {
+            await RepairDuplicateRepositoryPathsAsync(connection, repositoriesTable, cancellationToken);
+            await NormalizeRepositoryPathCaseAsync(connection, repositoriesTable, cancellationToken);
+        }
+        else
+        {
+            if (!await IndexExistsAsync(connection, indexName, cancellationToken))
+            {
+                await RepairDuplicateRepositoryPathsAsync(connection, repositoriesTable, cancellationToken);
+            }
+        }
+
+        if (await IndexExistsAsync(connection, indexName, cancellationToken))
+        {
+            return;
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"CREATE UNIQUE INDEX \"{indexName}\" ON \"{repositoriesTable}\" (\"Path\");";
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Merges duplicate <c>Repository</c> rows that share a <c>Path</c> into the lowest-id row,
+    /// preserving history by re-pointing <c>Runs</c> and <c>RepositoryPipelines</c> before deleting
+    /// the duplicates. A no-op when no duplicates exist.
+    /// </summary>
+    private static async Task RepairDuplicateRepositoryPathsAsync(
+        System.Data.Common.DbConnection connection,
+        string repositoriesTable,
+        CancellationToken cancellationToken)
+    {
+        if (!await HasDuplicateRepositoryPathsAsync(connection, repositoriesTable, cancellationToken))
+        {
+            return;
+        }
+
+        var runsTable = await FindRunTableAsync(connection, cancellationToken);
+        var pipelinesTable = await FindRepositoryPipelinesTableAsync(connection, cancellationToken);
+
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        if (runsTable is not null)
+        {
+            // Re-point every run to the lowest-id repository with the same path (a no-op for rows
+            // already on the keeper). Must precede the delete so the FK cascade cannot drop history.
+            // The WHERE clause skips runs that reference a missing repository, which would otherwise
+            // be set to NULL and violate the NOT NULL constraint.
+            await ExecuteAsync(
+                connection,
+                transaction,
+                $"UPDATE \"{runsTable}\" SET \"RepositoryId\" = (" +
+                $"SELECT MIN(k.\"Id\") FROM \"{repositoriesTable}\" k " +
+                $"WHERE {PathKey("k.\"Path\"")} = (SELECT {PathKey("d.\"Path\"")} FROM \"{repositoriesTable}\" d WHERE d.\"Id\" = \"{runsTable}\".\"RepositoryId\")) " +
+                $"WHERE \"RepositoryId\" IN (SELECT \"Id\" FROM \"{repositoriesTable}\");",
+                cancellationToken);
+        }
+
+        if (pipelinesTable is not null)
+        {
+            await ExecuteAsync(
+                connection,
+                transaction,
+                $"INSERT OR IGNORE INTO \"{pipelinesTable}\" (\"RepositoryId\", \"PipelineId\") " +
+                $"SELECT MIN(k.\"Id\"), p.\"PipelineId\" FROM \"{pipelinesTable}\" p " +
+                $"JOIN \"{repositoriesTable}\" r ON r.\"Id\" = p.\"RepositoryId\" " +
+                $"JOIN \"{repositoriesTable}\" k ON {PathKey("k.\"Path\"")} = {PathKey("r.\"Path\"")} GROUP BY p.\"PipelineId\";",
+                cancellationToken);
+
+            await ExecuteAsync(
+                connection,
+                transaction,
+                $"DELETE FROM \"{pipelinesTable}\" WHERE \"RepositoryId\" <> (" +
+                $"SELECT MIN(k.\"Id\") FROM \"{repositoriesTable}\" k " +
+                $"WHERE {PathKey("k.\"Path\"")} = (SELECT {PathKey("d.\"Path\"")} FROM \"{repositoriesTable}\" d WHERE d.\"Id\" = \"{pipelinesTable}\".\"RepositoryId\"));",
+                cancellationToken);
+        }
+
+        await ExecuteAsync(
+            connection,
+            transaction,
+            $"DELETE FROM \"{repositoriesTable}\" WHERE \"Id\" <> (" +
+            $"SELECT MIN(k.\"Id\") FROM \"{repositoriesTable}\" k WHERE {PathKey("k.\"Path\"")} = {PathKey($"\"{repositoriesTable}\".\"Path\"")});",
+            cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static string PathKey(string expression) =>
+        OperatingSystem.IsWindows() ? $"lower({expression})" : expression;
+
+    private static async Task NormalizeRepositoryPathCaseAsync(
+        System.Data.Common.DbConnection connection,
+        string repositoriesTable,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"UPDATE \"{repositoriesTable}\" SET \"Path\" = lower(\"Path\") WHERE \"Path\" <> lower(\"Path\");";
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<bool> HasDuplicateRepositoryPathsAsync(
+        System.Data.Common.DbConnection connection,
+        string repositoriesTable,
+        CancellationToken cancellationToken)
+    {
+        var pathExpression = PathKey($"\"{repositoriesTable}\".\"Path\"");
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT 1 FROM \"{repositoriesTable}\" GROUP BY {pathExpression} HAVING COUNT(*) > 1 LIMIT 1;";
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken);
+    }
+
+    private static async Task ExecuteNonQueryAsync(
+        System.Data.Common.DbConnection connection,
+        string commandText,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<Dictionary<string, string>> GetExistingTablesAsync(
+        System.Data.Common.DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        var tables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT \"name\" FROM sqlite_master WHERE \"type\" = 'table' AND \"name\" NOT LIKE 'sqlite_%';";
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var name = reader.GetString(0);
+            tables[name.ToLowerInvariant()] = name;
+        }
+
+        return tables;
+    }
+
+    private static IEnumerable<string> SplitCreateScriptStatements(string script)
+    {
+        // EF Core's GenerateCreateScript() returns dependency-ordered statements, typically ending with
+        // ");" or similar, separated by semicolons. They do not embed semicolons for the current model;
+        // guard against future shape changes by splitting on ';' and trimming non-empty statements.
+        if (string.IsNullOrWhiteSpace(script))
+        {
+            yield break;
+        }
+
+        foreach (var raw in script.Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var statement = raw.Trim();
+            if (statement.Length > 0)
+            {
+                yield return statement;
+            }
+        }
+    }
+
+    private static bool TryGetTableName(string statement, out string tableName)
+    {
+        tableName = string.Empty;
+        if (string.IsNullOrWhiteSpace(statement))
+        {
+            return false;
+        }
+
+        if (!statement.StartsWith("CREATE TABLE", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Find the first quoted table name: CREATE TABLE "TableName" (
+        var openQuote = statement.IndexOf('"', statement.IndexOf("TABLE", StringComparison.OrdinalIgnoreCase));
+        if (openQuote < 0)
+        {
+            openQuote = statement.IndexOf('`');
+            if (openQuote < 0)
+            {
+                return false;
+            }
+
+            var closeBacktick = statement.IndexOf('`', openQuote + 1);
+            if (closeBacktick < 0)
+            {
+                return false;
+            }
+
+            tableName = statement.Substring(openQuote + 1, closeBacktick - openQuote - 1);
+            return true;
+        }
+
+        var closeQuote = statement.IndexOf('"', openQuote + 1);
+        if (closeQuote < 0)
+        {
+            return false;
+        }
+
+        tableName = statement.Substring(openQuote + 1, closeQuote - openQuote - 1);
+        return true;
+    }
+
+    private const string RepositoryPathIndexName = "IX_Repositories_Path";
+
+    private static bool IsCreateIndexStatement(string statement, out string indexName, out string targetTable)
+    {
+        indexName = string.Empty;
+        targetTable = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(statement))
+        {
+            return false;
+        }
+
+        if (!statement.StartsWith("CREATE", StringComparison.OrdinalIgnoreCase) || !statement.Contains("INDEX", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Index name is the first quoted identifier after CREATE [UNIQUE] INDEX.
+        var indexOpen = statement.IndexOf('"');
+        if (indexOpen < 0)
+        {
+            indexOpen = statement.IndexOf('`');
+        }
+
+        if (indexOpen < 0)
+        {
+            return false;
+        }
+
+        var indexClose = statement.IndexOf(statement[indexOpen] == '"' ? '"' : '`', indexOpen + 1);
+        if (indexClose < 0)
+        {
+            return false;
+        }
+
+        indexName = statement.Substring(indexOpen + 1, indexClose - indexOpen - 1);
+
+        // Target table follows " ON " and is quoted.
+        var onIndex = statement.IndexOf(" ON ", StringComparison.OrdinalIgnoreCase);
+        if (onIndex < 0)
+        {
+            return true; // index name known
+        }
+
+        var tableOpen = statement.IndexOf('"', onIndex);
+        if (tableOpen < 0)
+        {
+            tableOpen = statement.IndexOf('`', onIndex);
+        }
+
+        if (tableOpen < 0)
+        {
+            return true;
+        }
+
+        var tableClose = statement.IndexOf(statement[tableOpen] == '"' ? '"' : '`', tableOpen + 1);
+        if (tableClose < 0)
+        {
+            return true;
+        }
+
+        targetTable = statement.Substring(tableOpen + 1, tableClose - tableOpen - 1);
+        return true;
+    }
+
+    /// <summary>Resolves the physical name of the run table (EF's <c>Runs</c>) or <see langword="null"/> when absent.</summary>
+    private static async Task<string?> FindRunTableAsync(
+        System.Data.Common.DbConnection connection,
+        CancellationToken cancellationToken)
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT \"name\" FROM sqlite_master WHERE \"type\" = 'table' AND lower(\"name\") IN ('runs', 'run');";
+
+        var names = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            names.Add(reader.GetString(0));
+        }
+
+        return names.Contains("Runs") ? "Runs" : names.FirstOrDefault();
+    }
+}
+
+    private static async Task<string?> FindRepositoryPipelinesTableAsync(
+        System.Data.Common.DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT \"name\" FROM sqlite_master WHERE \"type\" = 'table' AND lower(\"name\") = 'repositorypipelines';";
+
+        return (string?)await command.ExecuteScalarAsync(cancellationToken);
+    }
+
+    private static async Task<string?> FindRepositoriesTableAsync(
+        System.Data.Common.DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT \"name\" FROM sqlite_master WHERE \"type\" = 'table' AND lower(\"name\") IN ('repositories', 'repository');";
+
+        var names = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            names.Add(reader.GetString(0));
+        }
+
+        return names.Contains("Repositories") ? "Repositories" : names.FirstOrDefault();
+    }
+
+    private static async Task<bool> IndexExistsAsync(
+        System.Data.Common.DbConnection connection,
+        string indexName,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT 1 FROM sqlite_master WHERE \"type\" = 'index' AND lower(\"name\") = lower(@name);";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "@name";
+        parameter.Value = indexName;
+        command.Parameters.Add(parameter);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken);
+    }
+
+    private static readonly (string Legacy, string Model)[] LegacyTableRenames =
+    [
+        ("Repository", "Repositories"),
+        ("Run", "Runs"),
+        ("RunJob", "RunJobs"),
+        ("RunStep", "RunSteps"),
+    ];
+
+    /// <summary>
+    /// After <c>EnsureCreatedAsync</c> (which is a no-op on existing databases), reconcile the EF
+    /// model's tables against what is physically present in <c>sqlite_master</c>. Handles: renaming
+    /// known legacy singular tables to the model's plural names (preserving data), and creating any
+    /// missing tables from the EF-generated <c>GenerateCreateScript()</c> in script order, skipping
+    /// statements for tables that already exist. The script's <c>CREATE UNIQUE INDEX
+    /// "IX_Repositories_Path"</c> is not executed here (it is owned by
+    /// <see cref="EnsureRepositoryPathUniqueIndexAsync"/>). <c>sqlite_master</c> is consulted case-insensitively.
+    /// </summary>
+    private static async Task EnsureModelTablesAsync(
+        RailwayDbContext ctx,
+        System.Data.Common.DbConnection connection,
+        CancellationToken cancellationToken)
+    {
+        // Map lower(table name) -> actual table name from sqlite_master.
+        var existingByLower = await GetExistingTablesAsync(connection, cancellationToken);
+
+        // Rename legacy singular tables to the model's plural names if the target plural is missing.
+        foreach (var (legacy, model) in LegacyTableRenames)
+        {
+            var legacyKey = legacy.ToLowerInvariant();
+            var modelKey = model.ToLowerInvariant();
+
+            if (existingByLower.ContainsKey(modelKey))
+            {
+                continue; // target already exists
+            }
+
+            if (existingByLower.TryGetValue(legacyKey, out var actualLegacy))
+            {
+                // RENAME preserves data and (on modern SQLite with foreign_keys off at open time for this
+                // ALTER; the CLI/runtime connection defaults are fine) also updates FK/index references.
+                await ExecuteNonQueryAsync(
+                    connection,
+                    $"ALTER TABLE \"{actualLegacy}\" RENAME TO \"{model}\";",
+                    cancellationToken);
+
+                existingByLower.Remove(legacyKey);
+                existingByLower[modelKey] = model;
+            }
+        }
+
+        // Rebuild after renames.
+        if (LegacyTableRenames.Any(t => !existingByLower.ContainsKey(t.Model.ToLowerInvariant())))
+        {
+            existingByLower = await GetExistingTablesAsync(connection, cancellationToken);
+        }
+
+        // Create missing tables from the EF model's create script. Script order is dependency-ordered;
+        // we skip statements whose target table already exists to avoid conflicts and keep FKs coherent.
+        // The script carries CREATE UNIQUE INDEX "IX_Repositories_Path" — that is created/guarded by
+        // EnsureRepositoryPathUniqueIndexAsync (the authority). We skip that index statement here to avoid
+        // conflicts. Other CREATE INDEX statements are executed only if their index is missing; this is a
+        // pragmatic guard for future model changes (noting the risk if a future shape differs).
+        var script = ctx.Database.GenerateCreateScript();
+        foreach (var statement in SplitCreateScriptStatements(script))
+        {
+            if (!TryGetTableName(statement, out var tableName) || string.IsNullOrEmpty(tableName))
+            {
+                if (IsCreateIndexStatement(statement, out var indexName, out var _))
+                {
+                    if (string.Equals(indexName, RepositoryPathIndexName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Owned by EnsureRepositoryPathUniqueIndexAsync.
+                        continue;
+                    }
+
+                    if (await IndexExistsAsync(connection, indexName, cancellationToken))
+                    {
+                        continue;
+                    }
+
+                    // Execute the CREATE INDEX statement (dependency-ordered, targets an existing table).
+                    await ExecuteNonQueryAsync(connection, statement, cancellationToken);
+                    continue;
+                }
+
+                // Unknown statement type (e.g. PRAGMA) — skip rather than executing unrecognized DDL.
+                continue;
+            }
+
+            if (existingByLower.ContainsKey(tableName.ToLowerInvariant()))
+            {
+                continue; // table already present
+            }
+
+            await ExecuteNonQueryAsync(connection, statement, cancellationToken);
+            existingByLower[tableName.ToLowerInvariant()] = tableName;
+        }
+    }

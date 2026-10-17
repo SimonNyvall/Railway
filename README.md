@@ -1,5 +1,6 @@
-# Railway
 <p align="center"><img src="./images/logo.png" alt="logo" width="128px"/></p>
+
+# Railway
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
@@ -73,7 +74,7 @@ dotnet run --project Cli -- dashboard
 | `railway hooks status` | Show hook/scheduler state and per-pipeline trigger configuration. |
 | `railway hooks sync` | Re-materialize hooks and report Added/Removed/Updated diff. |
 | `railway hooks run <EVENT>` | Headless fan-out: trigger pipelines subscribed to a git/scheduler event (`--pipeline`, `--detach`, `--branch`, `--sha`, `--tag`, etc.). |
-| `railway hooks watch` | Foreground file watcher running pipelines with `watch` triggers until Ctrl+C (`--debounce`, `--initial`). |
+| `railway hooks watch [WATCH_PATH]` | Foreground file watcher running pipelines with `watch` triggers until Ctrl+C (`--debounce`, `--initial`). |
 
 All commands that operate on a repo accept `--path <PATH>` (where applicable). Engine never relies on current working directory; it walks up from the resolved path to find `.railway`.
 

@@ -18,6 +18,10 @@ public class HooksWatchSettings : HooksSettings
     [CommandOption("--verbose")]
     public new bool Verbose { get; set; }
 
+    /// <summary>Gets or sets the repository root (or any path inside it) supplied as a positional argument. Defaults to the current directory.</summary>
+    [CommandArgument(0, "[WATCH_PATH]")]
+    public string? WatchPath { get; set; }
+
     /// <summary>Gets or sets the pipeline file name that restricts the watch. Defaults to every watch-triggering pipeline.</summary>
     [CommandOption("--pipeline <FILE>")]
     public string? Pipeline { get; set; }
