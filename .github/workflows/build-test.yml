@@ -1,0 +1,29 @@
+name: Build and test Railway.
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore dotnet dependencies
+        run: dotnet restore Railway.slnx
+
+      - name: Build Solution
+        run: dotnet build --no-restore
+
+      - name: Run Test
+        working-directory: ./Tests/
+        run: dotnet test --no-build --verbosity detailed

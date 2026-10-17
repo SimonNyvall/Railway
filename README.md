@@ -1,4 +1,5 @@
 # Railway
+<p align="center"><img src="./images/logo.png" alt="logo" width="128px"/></p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
@@ -7,16 +8,16 @@ Local CI pipelines defined in YAML and triggered from git hooks, OS schedulers, 
 
 ## Features
 
-- **Local-first** — Executes commands in your shell using your existing environment and `PATH`. No Docker runtime required.
-- **YAML pipelines** — Define jobs, steps, dependencies, environment variables, and notifications under `.railway/pipelines/*.yaml`.
-- **Git-integrated triggers** — Materializes pipeline triggers into native git hooks and OS schedulers (`post-commit`, `push`, `post-merge`, `post-checkout`, `schedule`, `watch`).
-- **Live execution** — Streams stdout/stderr with per-step/job/run progress; stop-on-first-failure with topological job ordering.
-- **Run history** — Persists every run, job, and step to a local SQLite database with status, timing, exit codes, and trigger provenance.
-- **Validation & listing** — Validates pipelines on-the-fly; lists all discovered pipelines with validity and errors.
-- **Import existing workflows** — Convert GitHub Actions, GitLab CI, or Azure DevOps YAML into Railway pipeline format.
-- **Dashboard** — Quick overview of repository, pipeline validity, and recent runs.
-- **MCP server** — Local-only stdio MCP server exposing pipeline operations to AI assistants (Claude, Cursor, VS Code, etc.).
-- **Graceful cancellation** — Ctrl+C cancels gracefully; second Ctrl+C forces termination. Detached hook runs are cleaned up on cancellation.
+- **Local-first** - Executes commands in your shell using your existing environment and `PATH`. No Docker runtime required.
+- **YAML pipelines** - Define jobs, steps, dependencies, environment variables, and notifications under `.railway/pipelines/*.yaml`.
+- **Git-integrated triggers** - Materializes pipeline triggers into native git hooks and OS schedulers (`post-commit`, `push`, `post-merge`, `post-checkout`, `schedule`, `watch`).
+- **Live execution** - Streams stdout/stderr with per-step/job/run progress; stop-on-first-failure with topological job ordering.
+- **Run history** - Persists every run, job, and step to a local SQLite database with status, timing, exit codes, and trigger provenance.
+- **Validation & listing** - Validates pipelines on-the-fly; lists all discovered pipelines with validity and errors.
+- **Import existing workflows** - Convert GitHub Actions, GitLab CI, or Azure DevOps YAML into Railway pipeline format.
+- **Dashboard** - Quick overview of repository, pipeline validity, and recent runs.
+- **MCP server** - Local-only stdio MCP server exposing pipeline operations to AI assistants (Claude, Cursor, VS Code, etc.).
+- **Graceful cancellation** - Ctrl+C cancels gracefully; second Ctrl+C forces termination. Detached hook runs are cleaned up on cancellation.
 
 ## Quick Start
 
@@ -65,7 +66,7 @@ dotnet run --project Cli -- dashboard
 | `railway validate <FILE>` | Validate a pipeline YAML file (accepts relative path, absolute, or just filename). |
 | `railway list` | List all pipelines under `.railway/pipelines/` with validity status and errors. |
 | `railway run <FILE>` | Run a pipeline by filename. Auto-validates. Streams live output. |
-| `railway dashboard` | Default command — shows repo name, pipelines, and last 10 runs. |
+| `railway dashboard` | Default command - shows repo name, pipelines, and last 10 runs. |
 | `railway convert <PATH>` | Convert GitHub Actions/GitLab/Azure DevOps YAML to Railway format (`--format`, `--output`, `--force`). |
 | `railway hooks install` | Install git hooks and OS scheduler entries for pipelines with triggers. |
 | `railway hooks uninstall` | Remove Railway-managed hooks (`--purge` deletes logs). |
@@ -158,27 +159,27 @@ jobs:
 
 | Event | Mechanism | Options |
 |---|---|---|
-| `post-commit` | git `post-commit` | — (detached/non-blocking) |
+| `post-commit` | git `post-commit` | - (detached/non-blocking) |
 | `push` | git `pre-push` | `branches: [...]`, `tags: [...]` (wildcards allowed) |
-| `post-merge` | git `post-merge` | — (forwards squash flag) |
+| `post-merge` | git `post-merge` | - (forwards squash flag) |
 | `post-checkout` | git `post-checkout` | `clone: true` (opt into running on initial clone/branch checkouts) |
 | `schedule` | OS scheduler (launchd/crontab/schtasks) | Cron expression (5-field) or `@hourly/@daily/@weekly/@monthly/@yearly` |
 | `watch` | `railway hooks watch` (foreground) | Glob paths; defaults to `["**/*"]` if empty |
 
 **Hook management:**
-- `railway hooks install` — Materialize wrappers in `.railway/hooks/`, write git hooks (honoring `core.hooksPath`/worktrees), manage `.gitignore` block, register schedulers. Foreign hooks are backed up as `<hook>.railway-backup` and chained.
-- `railway hooks sync` — Diff and re-materialize; reports Added/Removed/Updated.
-- `railway hooks status` — Inspect installed hooks, scheduler registrations, per-pipeline triggers, locks, last run.
-- `railway hooks uninstall [--purge]` — Restore backups, remove Railway hooks; `--purge` deletes `.railway/logs/`.
-- `railway hooks run <EVENT>` — Manually fire an event (useful for testing). Supports `--branch`, `--sha`, `--tag`, `--remote`, `--prev`, `--new`, `--flag`, `--is-squash`, `--cron`, `--detach`, `--no-notify`.
-- `railway hooks watch` — Long-running file watcher; debounces changes and runs all pipelines with `watch` triggers.
+- `railway hooks install` - Materialize wrappers in `.railway/hooks/`, write git hooks (honoring `core.hooksPath`/worktrees), manage `.gitignore` block, register schedulers. Foreign hooks are backed up as `<hook>.railway-backup` and chained.
+- `railway hooks sync` - Diff and re-materialize; reports Added/Removed/Updated.
+- `railway hooks status` - Inspect installed hooks, scheduler registrations, per-pipeline triggers, locks, last run.
+- `railway hooks uninstall [--purge]` - Restore backups, remove Railway hooks; `--purge` deletes `.railway/logs/`.
+- `railway hooks run <EVENT>` - Manually fire an event (useful for testing). Supports `--branch`, `--sha`, `--tag`, `--remote`, `--prev`, `--new`, `--flag`, `--is-squash`, `--cron`, `--detach`, `--no-notify`.
+- `railway hooks watch` - Long-running file watcher; debounces changes and runs all pipelines with `watch` triggers.
 
 **Environment variables (hooks/notifications):**
-- `RAILWAY_HOOKS_NOTIFY` — Set to `0` to disable notifications.
-- `RAILWAY_HOOKS_NOTIFY_PLATFORM` — Override platform detection (`macos|linux|windows`).
-- `RAILWAY_HOOKS_SCHEDULER` — Force scheduler backend (`launchd|crontab|schtasks|fake`).
-- `RAILWAY_HOOKS_FAKE_SCHEDULER_ROOT` — Root for fake scheduler entries (testing).
-- `RAILWAY_HOOKS_LAUNCHD_ROOT` — Override launchd plist location.
+- `RAILWAY_HOOKS_NOTIFY` - Set to `0` to disable notifications.
+- `RAILWAY_HOOKS_NOTIFY_PLATFORM` - Override platform detection (`macos|linux|windows`).
+- `RAILWAY_HOOKS_SCHEDULER` - Force scheduler backend (`launchd|crontab|schtasks|fake`).
+- `RAILWAY_HOOKS_FAKE_SCHEDULER_ROOT` - Root for fake scheduler entries (testing).
+- `RAILWAY_HOOKS_LAUNCHD_ROOT` - Override launchd plist location.
 
 ## MCP Server (Local-only)
 
@@ -233,7 +234,7 @@ See [Mcp/README.md](Mcp/README.md) for more details.
 ## Data & Storage
 
 - **Database**: EF Core + SQLite. Auto-created on startup with schema upgrades.
-- **Location**: Platform-specific app data dir — Windows `%LocalAppData%/Railway`, Linux `$XDG_DATA_HOME/Railway` or `~/.local/share/Railway`, macOS `~/Library/Application Support/Railway`.
+- **Location**: Platform-specific app data dir - Windows `%LocalAppData%/Railway`, Linux `$XDG_DATA_HOME/Railway` or `~/.local/share/Railway`, macOS `~/Library/Application Support/Railway`.
 - **Entities**: `Run`, `RunJob`, `RunStep` store full execution history; pipeline YAML files are the source of truth.
 
 ## Limitations
@@ -248,4 +249,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions, project structure
 
 ## License
 
-MIT License — see [LICENSE](LICENSE). Copyright © 2026 NeotericSh.
+MIT License - see [LICENSE](LICENSE). Copyright © 2026 NeotericSh.

@@ -1,0 +1,41 @@
+version: 2
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/Tests"
+    schedule:
+      interval: "weekly"
+    target-branch: "master"
+    labels:
+      - "Tests"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    target-branch: "master"
+    labels:
+      - "github-actions"
+
+  - package-ecosystem: "nuget"
+    directory: "/Cli"
+    schedule:
+      interval: "weekly"
+    target-branch: "master"
+    labels:
+      - "Cli"
+
+  - package-ecosystem: "nuget"
+    directory: "/Mcp"
+    schedule:
+      interval: "weekly"
+    target-branch: "master"
+    labels:
+      - "Mcp"
+
+  - package-ecosystem: "nuget"
+    directory: "/Engine"
+    schedule:
+      interval: "weekly"
+    target-branch: "master"
+    labels:
+      - "Engine"
