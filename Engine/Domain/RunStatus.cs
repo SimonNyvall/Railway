@@ -5,5 +5,8 @@ public enum RunStatus
     Succeeded,
     Failed,
     Running,
-    Cancelled
+    Cancelled,
+    // Skipped must stay at the END so persisted numeric values never shift
+    // (Succeeded = 0 is the uninitialized default — see AGENTS.md gotchas).
+    Skipped
 }

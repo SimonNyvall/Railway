@@ -62,10 +62,16 @@ public class DashboardHandler : IDashboardHandler
                     RunStatus.Failed => $"[red]✗ Failed (exit {run.ExitCode})[/]",
                     RunStatus.Running => "[yellow]⟳ Running[/]",
                     RunStatus.Cancelled => "[dim]⊘ Cancelled[/]",
+                    RunStatus.Skipped => "[dim]⊘ Skipped[/]",
                     _ => $"[dim]{run.Status}[/]"
                 };
 
-                AnsiConsole.MarkupLine($"  {run.PipelineFileName} - {run.PipelineName} - {statusMarkup} - {run.StartedAt:yyyy-MM-dd HH:mm:ss}");
+                var trigger = string.IsNullOrEmpty(run.Trigger) ? "manual" : run.Trigger;
+                var triggerLabel = string.IsNullOrEmpty(run.TriggerDetail)
+                    ? trigger
+                    : $"{trigger} ({run.TriggerDetail})";
+
+                AnsiConsole.MarkupLine($"  {run.PipelineFileName} - {run.PipelineName} - {statusMarkup} - {run.StartedAt:yyyy-MM-dd HH:mm:ss} [dim]· {triggerLabel}[/]");
             }
         }
     }

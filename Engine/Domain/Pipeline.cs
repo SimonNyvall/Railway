@@ -10,5 +10,7 @@ public class Pipeline
 	public string Name { get; set; } = null!;
 	public Dictionary<string, Job> Jobs { get; set; } = [];
 	public Dictionary<string, string> Variables { get; set; } = [];
+	public List<TriggerDefinition> Triggers { get; set; } = [];
+	public NotificationLevel Notify { get; set; } = NotificationLevel.OnFailure;
 	public ICollection<RepositoryPipeline> RepositoryPipelines { get; } = [];
 }

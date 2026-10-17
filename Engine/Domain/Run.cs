@@ -13,5 +13,9 @@ public class Run
     public DateTimeOffset? FinishedAt { get; set; }
     public RunStatus Status { get; set; }
     public int? ExitCode { get; set; }
+    [MaxLength(20)]
+    public string Trigger { get; set; } = "manual";
+    [MaxLength(200)]
+    public string? TriggerDetail { get; set; }
     public ICollection<RunJob> Jobs { get; } = [];
 }
