@@ -1,24 +1,24 @@
-<p align="center"><img src="./images/logo.png" alt="logo" width="128px"/></p>
-
-# Railway
+<p align="center"><img src="./images/banner.png" alt="logo" width="100%"/></p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
+[![language](https://img.shields.io/badge/language-C%23-239120)]()
+[![OS](https://img.shields.io/badge/OS-linux%2C%20windows%2C%20macOS-0078D4)]()
+[![CI](https://github.com/SimonNyvall/Railway/actions/workflows/build-test.yml/badge.svg)](https://github.com/SimonNyvall/Railway/actions/workflows/build-test.yml)
+[![Dependabot Updates](https://github.com/SimonNyvall/Railway/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/SimonNyvall/Railway/actions/workflows/dependabot/dependabot-updates)
 
-Local CI pipelines defined in YAML and triggered from git hooks, OS schedulers, file watchers, or manually. Runs with your shell and environment — no containers required. Ships with a local-only MCP server so AI assistants can list, validate, and run pipelines.
+**Local CI pipelines. Your machine. Your rules.**
 
-## Features
+Railway runs CI pipelines directly in your shell. Define jobs in YAML and trigger them from Git hooks, schedules, file changes, or the CLI.
 
-- **Local-first** - Executes commands in your shell using your existing environment and `PATH`. No Docker runtime required.
-- **YAML pipelines** - Define jobs, steps, dependencies, environment variables, and notifications under `.railway/pipelines/*.yaml`.
-- **Git-integrated triggers** - Materializes pipeline triggers into native git hooks and OS schedulers (`post-commit`, `push`, `post-merge`, `post-checkout`, `schedule`, `watch`).
-- **Live execution** - Streams stdout/stderr with per-step/job/run progress; stop-on-first-failure with topological job ordering.
-- **Run history** - Persists every run, job, and step to a local SQLite database with status, timing, exit codes, and trigger provenance.
-- **Validation & listing** - Validates pipelines on-the-fly; lists all discovered pipelines with validity and errors.
-- **Import existing workflows** - Convert GitHub Actions, GitLab CI, or Azure DevOps YAML into Railway pipeline format.
-- **Dashboard** - Quick overview of repository, pipeline validity, and recent runs.
-- **MCP server** - Local-only stdio MCP server exposing pipeline operations to AI assistants (Claude, Cursor, VS Code, etc.).
-- **Graceful cancellation** - Ctrl+C cancels gracefully; second Ctrl+C forces termination. Detached hook runs are cleaned up on cancellation.
+No containers. No remote runners. Just your existing tools and environment.
+
+- Local-first — Runs with your shell, environment, and PATH.
+- YAML-based — Define jobs, steps, dependencies, and environment variables.
+- Automatic triggers — Run pipelines on Git events, schedules, or file changes.
+- Live execution — Stream output and track progress across jobs and steps.
+- Run history — Store execution details in a local SQLite database.
+- AI-ready — Let AI assistants discover, validate, and run pipelines through MCP.
 
 ## Quick Start
 
