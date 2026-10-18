@@ -26,7 +26,7 @@ public class RunCommand : AsyncCommand<RunSettings>
         _runHandler = runHandler;
     }
 
-    protected override async Task<int> ExecuteAsync(
+    public override async Task<int> ExecuteAsync(
         CommandContext context,
         RunSettings settings,
         CancellationToken cancellationToken

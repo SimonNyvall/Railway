@@ -498,11 +498,19 @@ public sealed class HookInstaller : IHookInstaller
 
         if (Directory.Exists(hooksDirectory))
         {
-            foreach (var hookPath in Directory.EnumerateFiles(hooksDirectory))
+            // Materialize the listing: the loop deletes hooks and restores backups below,
+            // so a lazy enumerator could otherwise yield entries that have been moved away.
+            foreach (var hookPath in Directory.EnumerateFiles(hooksDirectory).ToList())
             {
                 var hookName = Path.GetFileName(hookPath);
 
-                if (desiredHookNames.Contains(hookName) || !HookScriptHelper.IsRailwayManagedScript(File.ReadAllText(hookPath)))
+                // Backups are restored together with their base hook; never evaluate them alone.
+                if (hookName.EndsWith(HookScriptHelper.BackupSuffix, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (desiredHookNames.Contains(hookName) || !File.Exists(hookPath) || !HookScriptHelper.IsRailwayManagedScript(File.ReadAllText(hookPath)))
                 {
                     continue;
                 }
@@ -533,11 +541,11 @@ public sealed class HookInstaller : IHookInstaller
 
         if (Directory.Exists(wrappersDirectory))
         {
-            foreach (var wrapperPath in Directory.EnumerateFiles(wrappersDirectory))
+            foreach (var wrapperPath in Directory.EnumerateFiles(wrappersDirectory).ToList())
             {
                 var wrapperName = Path.GetFileName(wrapperPath);
 
-                if (desiredWrapperNames.Contains(wrapperName) || !HookScriptHelper.IsRailwayManagedScript(File.ReadAllText(wrapperPath)))
+                if (desiredWrapperNames.Contains(wrapperName) || !File.Exists(wrapperPath) || !HookScriptHelper.IsRailwayManagedScript(File.ReadAllText(wrapperPath)))
                 {
                     continue;
                 }
@@ -564,9 +572,9 @@ public sealed class HookInstaller : IHookInstaller
             return;
         }
 
-        foreach (var wrapperPath in Directory.EnumerateFiles(wrappersDirectory))
+        foreach (var wrapperPath in Directory.EnumerateFiles(wrappersDirectory).ToList())
         {
-            if (!HookScriptHelper.IsRailwayManagedScript(File.ReadAllText(wrapperPath)))
+            if (!File.Exists(wrapperPath) || !HookScriptHelper.IsRailwayManagedScript(File.ReadAllText(wrapperPath)))
             {
                 continue;
             }

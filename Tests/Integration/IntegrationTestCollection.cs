@@ -1,3 +1,4 @@
+using Tests.Infrastructure;
 using Xunit;
 
 namespace Tests.Integration;
@@ -19,9 +20,6 @@ public class IntegrationTestFixture : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(DbPath))
-        {
-            Directory.Delete(DbPath, true);
-        }
+        TempDirDeleter.Delete(DbPath);
     }
 }

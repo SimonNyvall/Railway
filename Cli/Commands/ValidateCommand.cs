@@ -20,7 +20,7 @@ public class ValidateCommand : AsyncCommand<ValidationSettings>
         _validationHandler = validationHandler;
     }
 
-    protected override async Task<int> ExecuteAsync(
+    public override async Task<int> ExecuteAsync(
         CommandContext context,
         ValidationSettings settings,
         CancellationToken cancellationToken

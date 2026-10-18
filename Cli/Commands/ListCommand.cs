@@ -14,7 +14,7 @@ public class ListCommand : AsyncCommand
         _listHandler = listHandler;
     }
 
-    protected override async Task<int> ExecuteAsync(
+    public override async Task<int> ExecuteAsync(
         CommandContext context,
         CancellationToken cancellationToken
     )

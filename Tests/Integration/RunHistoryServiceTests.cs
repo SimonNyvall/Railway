@@ -88,6 +88,8 @@ public class RunHistoryServiceTests : IDisposable
     [Fact]
     public async Task GetRunAsync_TruncatesStepOutputToBoundedLength()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "uses POSIX shell pipeline");
+
         _repo.WritePipeline("big.yaml", """
             name: big-pipeline
             jobs:

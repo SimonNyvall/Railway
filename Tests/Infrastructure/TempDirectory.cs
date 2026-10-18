@@ -23,9 +23,6 @@ public sealed class TempDirectory : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (Directory.Exists(Path))
-        {
-            Directory.Delete(Path, true);
-        }
+        TempDirDeleter.Delete(Path);
     }
 }

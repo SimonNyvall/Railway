@@ -29,7 +29,7 @@ public class ConvertCommand : AsyncCommand<ConvertSettings>
         _convertHandler = convertHandler;
     }
 
-    protected override async Task<int> ExecuteAsync(
+    public override async Task<int> ExecuteAsync(
         CommandContext context,
         ConvertSettings settings,
         CancellationToken cancellationToken

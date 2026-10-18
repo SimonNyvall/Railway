@@ -18,7 +18,7 @@ public class HooksRunCommand : AsyncCommand<HooksRunSettings>
         _handler = handler;
     }
 
-    protected override async Task<int> ExecuteAsync(
+    public override async Task<int> ExecuteAsync(
         CommandContext context,
         HooksRunSettings settings,
         CancellationToken cancellationToken)

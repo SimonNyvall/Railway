@@ -18,7 +18,7 @@ public class HooksInstallCommand : AsyncCommand<HooksSettings>
         _handler = handler;
     }
 
-    protected override async Task<int> ExecuteAsync(
+    public override async Task<int> ExecuteAsync(
         CommandContext context,
         HooksSettings settings,
         CancellationToken cancellationToken)

@@ -14,7 +14,7 @@ public class DashboardCommand : AsyncCommand
         _dashboardHandler = dashboardHandler;
     }
 
-    protected override async Task<int> ExecuteAsync(
+    public override async Task<int> ExecuteAsync(
         CommandContext context,
         CancellationToken cancellationToken
     )

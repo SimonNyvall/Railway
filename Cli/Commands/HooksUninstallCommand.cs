@@ -17,7 +17,7 @@ public class HooksUninstallCommand : AsyncCommand<HooksUninstallSettings>
         _handler = handler;
     }
 
-    protected override async Task<int> ExecuteAsync(
+    public override async Task<int> ExecuteAsync(
         CommandContext context,
         HooksUninstallSettings settings,
         CancellationToken cancellationToken)

@@ -332,7 +332,7 @@ public class HooksGitLifecycleTests : IDisposable
         var wrapperContent = File.ReadAllText(WrapperPath);
         Assert.Contains(HookScriptHelper.GetHookMarker(TriggerEvent.PostCommit), wrapperContent);
         Assert.Contains("dotnet", wrapperContent);
-        Assert.Contains(CliDllPath, wrapperContent);
+        Assert.Contains(HookScriptHelper.QuoteSh(CliDllPath), wrapperContent);
         Assert.Contains(" hooks run post-commit --path ", wrapperContent);
         Assert.Contains("--detach", wrapperContent);
         Assert.EndsWith("exit 0\n", wrapperContent);

@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text.Json;
 
 using Railway.Engine.Helpers;
@@ -19,8 +20,6 @@ public sealed class FakeScheduler : SchedulerBase
 {
     /// <summary>Environment variable overriding the fake scheduler's root directory.</summary>
     public const string RootEnvironmentVariable = "RAILWAY_HOOKS_FAKE_SCHEDULER_ROOT";
-
-    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
     private readonly string _root;
 
@@ -180,7 +179,14 @@ public sealed class FakeScheduler : SchedulerBase
             .ThenBy(record => record.Cron, StringComparer.Ordinal)
             .ToList();
 
-        File.WriteAllText(storePath, JsonSerializer.Serialize(ordered, SerializerOptions));
+        var buffer = new ArrayBufferWriter<byte>();
+
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true, NewLine = "\n" }))
+        {
+            JsonSerializer.Serialize(writer, ordered);
+        }
+
+        File.WriteAllBytes(storePath, buffer.WrittenSpan);
     }
 
     private sealed record FakeScheduleRecord(string PipelineFileName, string Cron);

@@ -42,8 +42,8 @@ public sealed class HookInstallerTests : IDisposable
         var wrapper = File.ReadAllText(wrapperPath);
         Assert.StartsWith("#!/bin/sh\n", wrapper);
         Assert.Contains("# railway-managed hook: post-commit", wrapper);
-        Assert.Contains($"cd \"{repository.Path}\" || exit 0", wrapper);
-        Assert.Contains($"\"dotnet\" \"/app/Cli.dll\" hooks run post-commit --path \"{repository.Path}\" --detach", wrapper);
+        Assert.Contains($"cd {HookScriptHelper.QuoteSh(repository.Path)} || exit 0", wrapper);
+        Assert.Contains($"\"dotnet\" \"/app/Cli.dll\" hooks run post-commit --path {HookScriptHelper.QuoteSh(repository.Path)} --detach", wrapper);
         Assert.Contains("exit 0", wrapper);
         Assert.DoesNotContain("\r", wrapper);
         Assert.DoesNotContain("[[", wrapper);
@@ -54,7 +54,7 @@ public sealed class HookInstallerTests : IDisposable
 
         var hook = File.ReadAllText(hookPath);
         Assert.Contains("# railway-managed hook: post-commit", hook);
-        Assert.Contains($"sh \"{wrapperPath}\" \"$@\"", hook);
+        Assert.Contains($"sh {HookScriptHelper.QuoteSh(wrapperPath)} \"$@\"", hook);
         Assert.DoesNotContain(".railway-backup", hook);
 
         if (!OperatingSystem.IsWindows())
@@ -181,8 +181,8 @@ public sealed class HookInstallerTests : IDisposable
 
         var hook = File.ReadAllText(hookPath);
         Assert.Contains("# railway-managed hook: post-commit", hook);
-        Assert.Contains($"if [ -f \"{backupPath}\" ]; then", hook);
-        Assert.Contains($"  sh \"{backupPath}\" \"$@\"", hook);
+        Assert.Contains($"if [ -f {HookScriptHelper.QuoteSh(backupPath)} ]; then", hook);
+        Assert.Contains($"  sh {HookScriptHelper.QuoteSh(backupPath)} \"$@\"", hook);
 
         Assert.Contains(
             result.Artifacts,

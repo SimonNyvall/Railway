@@ -21,7 +21,7 @@ public class HooksWatchCommand : AsyncCommand<HooksWatchSettings>
         _handler = handler;
     }
 
-    protected override async Task<int> ExecuteAsync(
+    public override async Task<int> ExecuteAsync(
         CommandContext context,
         HooksWatchSettings settings,
         CancellationToken cancellationToken)

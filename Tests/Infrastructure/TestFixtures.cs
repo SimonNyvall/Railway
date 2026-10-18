@@ -25,10 +25,7 @@ public class TestDatabaseFixture : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(DatabasePath))
-        {
-            Directory.Delete(DatabasePath, true);
-        }
+        TempDirDeleter.Delete(DatabasePath);
     }
 }
 
